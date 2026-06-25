@@ -381,6 +381,8 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
 .sub-exp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .sub-exp-lbl{color:var(--tx3);width:62px;flex-shrink:0;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
 .sub-rich-actions{display:flex;gap:2px;flex-shrink:0}
+.sub-qadd-btn{opacity:0;transition:opacity .15s;margin-left:5px;vertical-align:middle;flex-shrink:0}
+.task-item:hover .sub-qadd-btn,tr:hover .sub-qadd-btn{opacity:1}
 
 /* schedule gcal note */
 .sched-gcal-note{font-size:11.5px;color:var(--tx3);display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--g50)}
@@ -1424,6 +1426,7 @@ function taskHtml(t, q=''){
       ${subListHtml}
     </div>
     <div class="tact">
+      <button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickOpenSubAdd('${t.id}')" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:10px"></i></button>
       ${subs.length?`<button class="ibtn" onclick="event.stopPropagation();toggleSubList('${t.id}')"><i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>`:''}
       <button class="ibtn" onclick="event.stopPropagation();openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button>
       <button class="ibtn" onclick="event.stopPropagation();deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button>
@@ -1524,7 +1527,7 @@ function taskRow(t, cols, context, q=''){
   }).join('');
   return `<tr class="${t.status==='done'?'done-row':''}" onclick="openSp('${t.id}')" style="cursor:pointer">
     <td onclick="event.stopPropagation();toggleTask('${t.id}')"><div class="chk ${t.status==='done'?'done':''}" style="width:15px;height:15px">${t.status==='done'?'<i class="fa-solid fa-check" style="font-size:8px;color:#fff"></i>':''}</div></td>
-    ${vis('title')?`<td><span class="tt">${titleHl}</span>${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}</td>`:''}
+    ${vis('title')?`<td><span class="tt">${titleHl}</span>${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}<button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickOpenSubAdd('${t.id}')" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellPrioHtml(t)}</td>`:''}
     ${vis('type')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTypeHtml(t)}</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellStatusHtml(t)}</td>`:''}
@@ -2076,6 +2079,7 @@ function spDeleteSub(tid,sid){
   renderSpSubtasks(tid);
 }
 function addSubtask(){ spShowAddForm(); }
+function quickOpenSubAdd(id){ openSp(id); setTimeout(()=>spShowAddForm(),60); }
 function spTogSub(tid,sid){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
   const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
