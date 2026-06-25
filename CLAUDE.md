@@ -30,3 +30,8 @@ Firebase Firestore (compat SDK v10.12.2). Collections: `tasks`, `events`, `miles
 
 ## Settings persistence
 `prioTypes`, `taskTypes`, `tags`, `customCols`, `colDefs` all saved via `fbSaveSettings()` to `settings/config` doc. Loaded on init via `fbLoadSettings()`.
+## Git
+After completing any task, always:
+git add .
+git commit -m "[brief description of what was done]"
+git push origin main
