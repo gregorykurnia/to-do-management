@@ -240,8 +240,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 .col-drag{color:var(--tx3);cursor:grab;font-size:12px}
 
 /* Prio manager */
-.prio-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd);margin-bottom:6px;background:var(--surface)}
+.prio-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd);margin-bottom:6px;background:var(--surface);cursor:default;transition:border-color .12s}
+.prio-item.drag-over{border-color:var(--p400);background:var(--p50)}
 .prio-color-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+/* Color palette */
+.color-palette{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
+.color-swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .1s,box-shadow .1s;flex-shrink:0}
+.color-swatch:hover{transform:scale(1.18)}
+.color-swatch.sel{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--tx2)}
 
 /* Modal */
 .mo{position:fixed;inset:0;background:rgba(0,0,0,.32);display:none;align-items:center;justify-content:center;z-index:200}
@@ -401,7 +407,7 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
   <div class="sb-sec">
     <div class="sb-sec-lbl">Planning</div>
     <button class="nav" onclick="sv('week')"><i class="fa-solid fa-calendar-week"></i> Week View</button>
-    <button class="nav" onclick="sv('milestones')"><i class="fa-solid fa-flag"></i> Milestones</button>
+    <button class="nav" onclick="sv('milestones')"><i class="fa-solid fa-flag"></i> Important Dates</button>
   </div>
   <div class="sb-sec">
     <div class="sb-sec-lbl">Calendar</div>
@@ -655,7 +661,7 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
     <!-- MILESTONES -->
     <div class="view" id="view-milestones">
       <div style="display:flex;align-items:center;margin-bottom:16px">
-        <div style="flex:1"><h2 style="font-size:16px;font-weight:600">Milestones</h2><p style="font-size:12px;color:var(--tx3);margin-top:1px">Business delivery targets</p></div>
+        <div style="flex:1"><h2 style="font-size:16px;font-weight:600">Important Dates</h2><p style="font-size:12px;color:var(--tx3);margin-top:1px">Key milestones &amp; delivery targets</p></div>
         <button class="btn btn-pr btn-sm" onclick="openMsModal()"><i class="fa-solid fa-plus"></i> Add</button>
       </div>
       <div class="card" id="ms-list"></div>
@@ -870,25 +876,25 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
 
 <!-- PRIO MODAL -->
 <div class="mo" id="mo-prio" onclick="closeMo('mo-prio',event)">
-  <div class="modal" style="width:360px" onclick="event.stopPropagation()">
-    <div class="modal-hd"><div class="modal-ttl">Add Priority Type</div><button class="ibtn" onclick="closeMoDirect('mo-prio')"><i class="fa-solid fa-xmark"></i></button></div>
+  <div class="modal" style="width:380px" onclick="event.stopPropagation()">
+    <div class="modal-hd"><div class="modal-ttl" id="mo-prio-ttl">Add Priority Type</div><button class="ibtn" onclick="closeMoDirect('mo-prio')"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body">
-      <div class="frow"><label class="flbl">Label</label><input class="finp" id="prio-lbl" placeholder="e.g. Critical, Nice to have"></div>
-      <div class="frow"><label class="flbl">Color</label>
-        <select class="fsel" id="prio-color">
-          <option value="#E24B4A">🔴 Red</option>
-          <option value="#EF9F27">🟡 Amber</option>
-          <option value="#85B7EB">🔵 Blue</option>
-          <option value="#5DCAA5">🟢 Teal</option>
-          <option value="#AFA9EC">🟣 Purple</option>
-          <option value="#F09595">🩷 Pink</option>
-          <option value="#888780">⚪ Gray</option>
-        </select>
+      <input type="hidden" id="prio-edit-idx" value="">
+      <input type="hidden" id="prio-color" value="#E24B4A">
+      <div class="frow"><label class="flbl">Label</label><input class="finp" id="prio-lbl" placeholder="e.g. Critical, High, Nice to have"></div>
+      <div class="frow">
+        <label class="flbl">Color</label>
+        <div class="color-palette" id="prio-color-palette"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+          <input type="color" id="prio-color-custom" style="width:30px;height:30px;border:1px solid var(--bd2);border-radius:var(--r-sm);cursor:pointer;padding:2px;background:var(--surface)" title="Pick any custom color" oninput="selectPrioColor(this.value)">
+          <span style="font-size:11.5px;color:var(--tx3)">or pick any custom color</span>
+          <div id="prio-color-preview" style="width:18px;height:18px;border-radius:50%;background:#E24B4A;flex-shrink:0;margin-left:auto;border:1px solid var(--bd2)"></div>
+        </div>
       </div>
     </div>
     <div class="modal-ft">
       <button class="btn btn-gh btn-sm" onclick="closeMoDirect('mo-prio')">Cancel</button>
-      <button class="btn btn-pr btn-sm" onclick="savePrio()"><i class="fa-solid fa-check"></i> Add</button>
+      <button class="btn btn-pr btn-sm" onclick="savePrio()"><i class="fa-solid fa-check"></i> Save</button>
     </div>
   </div>
 </div>
@@ -945,7 +951,8 @@ function setSyncDot(state){
 /* ════════════════════════════════════════════════
    CORE STATE
 ════════════════════════════════════════════════ */
-const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const TODAY = new Date(); TODAY.setHours(0,0,0,0); // kept for seed data only
+function getToday(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
 let dayOff = 0, wkOff = 0, schedDayOff2 = 0;
 let taskViewMode = 'table', teamViewMode = 'table';
 let activeSp = null, gcalConnected = false;
@@ -982,11 +989,11 @@ const SORT_FIELDS = [
 const DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-function ds(d){ return d.toISOString().split('T')[0]; }
-function todayStr(){ return ds(TODAY); }
+function ds(d){ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function todayStr(){ return ds(getToday()); }
 function fmtDate(s){ if(!s)return'—'; const d=new Date(s+'T00:00:00'); return d.toLocaleDateString('en-ID',{month:'short',day:'numeric'}); }
-function isOvd(due){ if(!due)return false; return new Date(due+'T00:00:00')<TODAY; }
-function dayForOff(off){ const d=new Date(TODAY); d.setDate(TODAY.getDate()+off); return d; }
+function isOvd(due){ if(!due)return false; return new Date(due+'T00:00:00')<getToday(); }
+function dayForOff(off){ const t=getToday(); const d=new Date(t); d.setDate(t.getDate()+off); return d; }
 
 /* ════════════════════════════════════════════════
    IN-MEMORY DATA  (populated from Firestore)
@@ -1032,10 +1039,10 @@ const SAMPLE_EVENTS = [
   {id:'e4',title:'GRII online study',date:todayStr(),start:'19:00',end:'20:30',type:'personal',link:'https://zoom.us/grii',location:'',attendees:'',notes:'',gcal:true},
 ];
 const SAMPLE_MILESTONES = [
-  {id:'m1',title:'PMS client delivery – Phase 3',date:'2026-08-31',product:'PMS',status:'in-progress',desc:'Full module completion for recurring client'},
-  {id:'m2',title:'Potentia school pilot launch',date:'2026-07-15',product:'Potentia',status:'upcoming',desc:'Codero first 3 schools onboarded'},
-  {id:'m3',title:'Discover enterprise demo – Telkom',date:'2026-07-30',product:'Discover',status:'upcoming',desc:'Re-engage 6 subsidiaries pilot'},
-  {id:'m4',title:'Attendance PWA beta',date:'2026-06-30',product:'PMS',status:'in-progress',desc:'Cron + export features'},
+  {id:'m1',title:'PMS client delivery – Phase 3',startDate:'2026-08-01',endDate:'2026-08-31',date:'2026-08-31',product:'PMS',category:'Product',status:'in-progress',desc:'Full module completion for recurring client'},
+  {id:'m2',title:'Potentia school pilot launch',startDate:'2026-07-10',endDate:'2026-07-15',date:'2026-07-15',product:'Potentia',category:'Launch',status:'upcoming',desc:'Codero first 3 schools onboarded'},
+  {id:'m3',title:'Discover enterprise demo – Telkom',startDate:'2026-07-28',endDate:'2026-07-30',date:'2026-07-30',product:'Discover',category:'Sales',status:'upcoming',desc:'Re-engage 6 subsidiaries pilot'},
+  {id:'m4',title:'Attendance PWA beta',startDate:'2026-06-25',endDate:'2026-06-30',date:'2026-06-30',product:'PMS',category:'Product',status:'in-progress',desc:'Cron + export features'},
 ];
 
 /* ════════════════════════════════════════════════
@@ -1091,8 +1098,8 @@ async function fbLoadSettings(){
       if(d.prioTypes?.length) prioTypes = d.prioTypes;
       if(d.taskTypes?.length) taskTypes = d.taskTypes;
       if(d.tags?.length) tags = d.tags;
-      if(d.customCols?.length) customCols = d.customCols;
-      if(d.colDefs?.length) colDefs = d.colDefs;
+      if(Array.isArray(d.customCols)) customCols = d.customCols;
+      if(Array.isArray(d.colDefs)&&d.colDefs.length) colDefs = d.colDefs;
     }
   } catch(e){
     console.error('fbLoadSettings error', e);
@@ -1175,7 +1182,7 @@ function cycleStatus(id){
 function carryoverDays(t){
   if(!t.carryover || !t.carryoverSince) return 0;
   const since = new Date(t.carryoverSince+'T00:00:00');
-  const diff = Math.floor((TODAY - since) / 86400000);
+  const diff = Math.floor((getToday() - since) / 86400000);
   return diff > 0 ? diff : 0;
 }
 
@@ -1439,23 +1446,45 @@ function cellTagsHtml(t){
 function toggleCellDd(id){
   const el=document.getElementById(id); if(!el)return;
   if(_activeCellDd&&_activeCellDd!==el) closeCellDd();
-  el.classList.toggle('open');
-  _activeCellDd=el.classList.contains('open')?el:null;
+  if(el.classList.contains('open')){ closeCellDd(); return; }
+  // Use fixed positioning so the dropdown escapes overflow:auto clipping
+  const rect=el.parentElement.getBoundingClientRect();
+  el.style.position='fixed';
+  el.style.top=(rect.bottom+4)+'px';
+  el.style.left=rect.left+'px';
+  // Clamp to viewport after browser lays it out
+  requestAnimationFrame(()=>{ const w=el.offsetWidth||180; el.style.left=Math.min(rect.left, window.innerWidth-w-8)+'px'; });
+  el.style.zIndex='9999';
+  el.classList.add('open');
+  _activeCellDd=el;
+}
+function closeCellDd(){
+  if(_activeCellDd){
+    _activeCellDd.classList.remove('open');
+    _activeCellDd.style.position='';
+    _activeCellDd.style.top='';
+    _activeCellDd.style.left='';
+    _activeCellDd.style.zIndex='';
+    _activeCellDd=null;
+  }
 }
 function cellSetPrio(tid,pid){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.prio=pid; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetType(tid,typ){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.type=typ; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetStatus(tid,st){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.status=st; fbSet('tasks',tid,t); closeCellDd(); if(String(activeSp)===String(tid))openSp(tid); }
-function cellToggleTag(tid,tag){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; if(!t.tags)t.tags=[]; const i=t.tags.indexOf(tag); if(i>-1)t.tags.splice(i,1); else t.tags.push(tag); fbSet('tasks',tid,t); /* keep dropdown open for multi-select — re-render cell only */ const el=document.getElementById('cdd-tg-'+tid); if(el){ const cell=el.closest('td'); if(cell){const cur=t.tags||[];const tagList=tags.map(tg=>`<div class="cell-dd-item${cur.includes(tg)?' active':''}" onclick="event.stopPropagation();cellToggleTag('${tid}','${tg}')"><i class="fa-solid fa-${cur.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join('');el.innerHTML=tagList;el.classList.add('open');_activeCellDd=el;} } }
+function cellToggleTag(tid,tag){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; if(!t.tags)t.tags=[]; const i=t.tags.indexOf(tag); if(i>-1)t.tags.splice(i,1); else t.tags.push(tag); fbSet('tasks',tid,t); /* keep dropdown open for multi-select — re-render cell only */ const el=document.getElementById('cdd-tg-'+tid); if(el){ const cur=t.tags||[];const tagList=tags.map(tg=>`<div class="cell-dd-item${cur.includes(tg)?' active':''}" onclick="event.stopPropagation();cellToggleTag('${tid}','${tg}')"><i class="fa-solid fa-${cur.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join('');el.innerHTML=tagList; } }
 
 function cellDueHtml(t){
   const ovd=isOvd(t.due)&&t.status!=='done';
   const disp=t.due?`<span style="font-size:11.5px;color:${ovd?'var(--r600)':'var(--tx2)'}">${fmtDate(t.due)}${t.dueTime?` <span style="opacity:.6">${t.dueTime}</span>`:''}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
-  return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('cdd-due-${t.id}')">${disp}<div class="cell-dd" id="cdd-due-${t.id}" style="min-width:200px;padding:8px">
+  return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('cdd-due-${t.id}')">${disp}<div class="cell-dd" id="cdd-due-${t.id}" style="min-width:210px;padding:8px">
     <div style="font-size:10.5px;font-weight:600;color:var(--tx3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Due date</div>
-    <input type="date" class="finp" style="font-size:12px;padding:5px 8px;margin-bottom:6px" value="${t.due||''}" onclick="event.stopPropagation()" onchange="cellSetDue('${t.id}',this.value,document.getElementById('cdd-due-time-${t.id}').value)">
+    <input type="date" id="cdd-due-date-${t.id}" class="finp" style="font-size:12px;padding:5px 8px;margin-bottom:6px" value="${t.due||''}" onclick="event.stopPropagation()">
     <div style="font-size:10.5px;font-weight:600;color:var(--tx3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Time (optional)</div>
-    <input type="time" id="cdd-due-time-${t.id}" class="finp" style="font-size:12px;padding:5px 8px" value="${t.dueTime||''}" onclick="event.stopPropagation()" onchange="cellSetDue('${t.id}',document.querySelector('#cdd-due-${t.id} input[type=date]').value,this.value)">
-    <div style="margin-top:7px;text-align:right"><button class="btn btn-xs btn-gh" onclick="event.stopPropagation();cellSetDue('${t.id}','','');closeCellDd()">Clear</button></div>
+    <input type="time" id="cdd-due-time-${t.id}" class="finp" style="font-size:12px;padding:5px 8px" value="${t.dueTime||''}" onclick="event.stopPropagation()">
+    <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end">
+      <button class="btn btn-xs btn-gh" onclick="event.stopPropagation();cellSetDue('${t.id}','','');closeCellDd()">Clear</button>
+      <button class="btn btn-xs btn-pr" onclick="event.stopPropagation();cellSetDue('${t.id}',document.getElementById('cdd-due-date-${t.id}').value,document.getElementById('cdd-due-time-${t.id}').value)">Set</button>
+    </div>
   </div></div>`;
 }
 function cellAssigneeHtml(t){
@@ -1471,7 +1500,7 @@ function taskRow(t, cols, context, q=''){
   const sdone=subs.filter(s=>s.done).length;
   const titleHl=q?hlText(t.title,q):t.title;
   const vis=id=>!colDefs.find(c=>c.id===id)?.hidden;
-  const customCells=(cols||customCols).map(col=>{
+  const customCells=(cols||customCols).filter(c=>!c.hidden).map(col=>{
     const val=(t.custom||{})[col.id]||'';
     if(col.type==='url'&&val) return`<td><a href="${val}" target="_blank" onclick="event.stopPropagation()" style="color:var(--b600);font-size:11px">${val.replace(/^https?:\/\//,'').substring(0,24)}…</a></td>`;
     if(col.type==='checkbox') return`<td><input type="checkbox" ${val?'checked':''} onclick="event.stopPropagation()" style="accent-color:var(--p600)"></td>`;
@@ -1487,7 +1516,7 @@ function taskRow(t, cols, context, q=''){
     ${vis('assignee')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellAssigneeHtml(t)}</td>`:''}
     ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTagsHtml(t)}</td>`:''}
     ${customCells}
-    <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px"><button class="ibtn" onclick="openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="ibtn" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
+    <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">${context==='team'?`<button class="ibtn" onclick="claimTask('${t.id}')" title="Move to My Tasks"><i class="fa-solid fa-user-check" style="font-size:10px"></i></button>`:''}<button class="ibtn" onclick="openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="ibtn" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
   </tr>`;
 }
 
@@ -1495,7 +1524,7 @@ function tableHeaders(context){
   return colDefs.filter(c=>!c.fixed&&!c.hidden).map(c=>`<th class="${thClsStr(c.id,context)}" onclick="onThClick('${c.id}','${context}')" style="cursor:pointer;user-select:none">${c.label} <i class="fa-solid fa-sort" style="font-size:8px;opacity:.3"></i></th>`).join('');
 }
 function customColHeaders(context){
-  return customCols.map((c,i)=>`<th style="position:relative"><span>${c.name}</span><span onclick="event.stopPropagation();removeColInline(${i})" style="margin-left:6px;cursor:pointer;color:var(--tx3);font-size:9px;opacity:.5" title="Remove column">✕</span></th>`).join('')
+  return customCols.filter(c=>!c.hidden).map((c,i)=>`<th style="position:relative"><span>${c.name}</span><span onclick="event.stopPropagation();removeColInline(customCols.indexOf(c))" style="margin-left:6px;cursor:pointer;color:var(--tx3);font-size:9px;opacity:.5" title="Remove column">✕</span></th>`).join('')
     +`<th onclick="openColManager()" style="cursor:pointer;color:var(--p600);white-space:nowrap;font-size:10px" title="Manage columns"><i class="fa-solid fa-sliders"></i> Cols</th>`;
 }
 function removeColInline(i){ if(!confirm(`Remove column "${customCols[i].name}"?`)) return; customCols.splice(i,1); fbSaveSettings(); renderTasksView(); renderTeam(); }
@@ -1528,20 +1557,20 @@ function submitSubInline(e,tid){
 function renderTasksView(){
   const q=(document.getElementById('task-search-inp')||{}).value?.toLowerCase()||'';
   const curDayStr=ds(dayForOff(dayOff));
-  let filtered=applyFpFilter(tasks,'fp-tasks','task-search-inp');
+  const myTasks=tasks.filter(t=>!t.assignee||t.assignee==='me');
+  let filtered=applyFpFilter(myTasks,'fp-tasks','task-search-inp');
   filtered=filtered.filter(t=>{
-    if(!t.due) return true;
+    if(dayOff===0) return true; // today: show all tasks regardless of due date
+    if(!t.due) return false;    // no due date: only visible on today
     if(dayOff<0) return t.due===curDayStr||(t.carryover&&t.due<=curDayStr);
-    if(dayOff===0) return t.due<=curDayStr||t.carryover;
-    return t.due===curDayStr||t.due>curDayStr;
+    return t.due===curDayStr;   // future day: only tasks due exactly on that date
   });
   const open=filtered.filter(t=>t.status!=='done');
   const done_=filtered.filter(t=>t.status==='done');
-  // status counts for stats
-  const allOpen=tasks.filter(t=>t.status!=='done');
+  const allOpen=myTasks.filter(t=>t.status!=='done');
   document.getElementById('task-stats').innerHTML=`
-    <div class="stat"><div class="stat-lbl">Not done</div><div class="stat-val">${allOpen.length}</div><div class="stat-sub">total open</div></div>
-    <div class="stat"><div class="stat-lbl">In Progress</div><div class="stat-val">${tasks.filter(t=>t.status==='in-progress').length}</div><div class="stat-sub">active</div></div>
+    <div class="stat"><div class="stat-lbl">Not done</div><div class="stat-val">${allOpen.length}</div><div class="stat-sub">my open tasks</div></div>
+    <div class="stat"><div class="stat-lbl">In Progress</div><div class="stat-val">${myTasks.filter(t=>t.status==='in-progress').length}</div><div class="stat-sub">active</div></div>
     <div class="stat"><div class="stat-lbl">Carried over</div><div class="stat-val">${allOpen.filter(t=>t.carryover).length}</div><div class="stat-sub">from prev day</div></div>
     <div class="stat"><div class="stat-lbl" style="color:var(--r600)">Overdue</div><div class="stat-val" style="color:var(--r600)">${allOpen.filter(t=>isOvd(t.due)).length}</div><div class="stat-sub">need attention</div></div>`;
   document.getElementById('b-tasks').textContent=allOpen.length;
@@ -1604,14 +1633,19 @@ function deleteTask(id){
   fbDelete('tasks',id);
   closeSp();
 }
+function claimTask(id){
+  const t=tasks.find(t=>String(t.id)===String(id)); if(!t)return;
+  fbSet('tasks',id,{...t,assignee:'me'});
+}
 
 /* ════════════════════════════════════════════════
    RENDER: TEAM
 ════════════════════════════════════════════════ */
 function renderTeam(){
   const q=(document.getElementById('team-search-inp')||{}).value?.toLowerCase()||'';
-  const filtered=applyFpFilter(tasks,'fp-team','team-search-inp');
-  document.getElementById('b-team').textContent=tasks.filter(t=>t.status!=='done').length;
+  const teamTasks=tasks.filter(t=>t.assignee&&t.assignee!=='me');
+  const filtered=applyFpFilter(teamTasks,'fp-team','team-search-inp');
+  document.getElementById('b-team').textContent=teamTasks.filter(t=>t.status!=='done').length;
   const area=document.getElementById('team-area');
   renderSortActivePills('team');
   if(teamViewMode==='table'){
@@ -1641,7 +1675,7 @@ function setTeamViewMode(m){ teamViewMode=m; document.getElementById('tvt-group'
    RENDER: WEEK
 ════════════════════════════════════════════════ */
 function renderWeek(){
-  const base=new Date(TODAY); base.setDate(TODAY.getDate()-TODAY.getDay()+wkOff*7);
+  const _today=getToday(); const base=new Date(_today); base.setDate(_today.getDate()-_today.getDay()+wkOff*7);
   const end=new Date(base); end.setDate(base.getDate()+6);
   document.getElementById('wk-label').textContent=`${base.toLocaleDateString('en-ID',{month:'short',day:'numeric'})} – ${end.toLocaleDateString('en-ID',{month:'short',day:'numeric',year:'numeric'})}`;
   let html='',totalOpen=0,totalDone=0;
@@ -1653,7 +1687,7 @@ function renderWeek(){
     totalDone+=dayTasks.filter(t=>t.status==='done').length;
     const chips=dayTasks.slice(0,4).map(t=>{const bg=t.prio===prioTypes[0]?.id?'var(--r50)':t.type==='team'?'var(--t50)':'var(--g50)';return`<span class="wk-chip" style="background:${bg}">${(t.title||'').substring(0,28)}</span>`;}).join('');
     const more=dayTasks.length>4?`<span style="font-size:10px;color:var(--tx3);padding:2px 6px">+${dayTasks.length-4} more</span>`:'';
-    const dayOffset=Math.round((d-TODAY)/86400000);
+    const dayOffset=Math.round((d-getToday())/86400000);
     html+=`<div class="wk-day ${isToday_?'today':''}" onclick="wkDayClick(${dayOffset})" style="cursor:pointer" title="Open in My Tasks">
       <div class="wk-day-hd" style="display:flex;align-items:center;justify-content:space-between">
         <div><div class="wk-dayname">${DAYS[d.getDay()]}</div><div class="wk-daynum">${d.getDate()}</div></div>
@@ -1700,12 +1734,73 @@ function schedGoToday(){schedDayOff2=0;renderSchedule();}
 function renderMs(){
   const stColor={'in-progress':['var(--a200)','var(--a800)'],'upcoming':['var(--b200)','var(--b800)'],'done':['var(--gr200)','var(--gr800)']};
   const el=document.getElementById('ms-list'); if(!el)return;
+  if(!milestones.length){el.innerHTML='<div style="padding:32px;text-align:center;color:var(--tx3);font-size:13px">No important dates yet. <span style="cursor:pointer;color:var(--p600)" onclick="openMsModal()">Add one</span>.</div>';return;}
   el.innerHTML=milestones.map(m=>{
     const[bc,tc]=stColor[m.status]||stColor.upcoming;
-    return`<div class="ms-item"><div class="ms-bar" style="background:${bc}"></div><div style="flex:1"><div style="display:flex;align-items:center;gap:7px;margin-bottom:3px"><span style="font-size:13px;font-weight:500">${m.title}</span><span class="badge" style="background:${bc}22;color:${tc}">${m.status}</span></div><div style="font-size:12px;color:var(--tx3)">${m.desc}</div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:11.5px;font-weight:600;color:var(--p600)">${m.product}</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">${fmtDate(m.date)}</div></div></div>`;
+    const dateRange=m.startDate&&m.endDate?`${fmtDate(m.startDate)} – ${fmtDate(m.endDate)}`:m.startDate?fmtDate(m.startDate):m.date?fmtDate(m.date):'—';
+    const catBadge=m.category?`<span class="badge btag">${m.category}</span>`:'';
+    return`<div class="ms-item">
+      <div class="ms-bar" style="background:${bc}"></div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+          <span style="font-size:13px;font-weight:500">${m.title}</span>
+          <span class="badge" style="background:${bc}22;color:${tc}">${m.status}</span>
+          ${catBadge}
+        </div>
+        <div style="font-size:12px;color:var(--tx3)">${m.desc||''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-right:10px">
+        <div style="font-size:11.5px;font-weight:600;color:var(--p600)">${m.product||''}</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">${dateRange}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        <button class="ibtn" onclick="openMsModal('${m.id}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="ibtn" style="color:var(--r600)" onclick="deleteMilestone('${m.id}')"><i class="fa-solid fa-trash"></i></button>
+      </div>
+    </div>`;
   }).join('');
 }
-function openMsModal(){alert('Milestone editor coming soon.');}
+
+function openMsModal(id){
+  const m=id?milestones.find(m=>String(m.id)===String(id)):null;
+  document.getElementById('ms-edit-id').value=id||'';
+  document.getElementById('mo-ms-ttl').textContent=m?'Edit Important Date':'New Important Date';
+  document.getElementById('ms-title').value=m?.title||'';
+  document.getElementById('ms-category').value=m?.category||'';
+  document.getElementById('ms-product').value=m?.product||'';
+  document.getElementById('ms-status').value=m?.status||'upcoming';
+  document.getElementById('ms-start').value=m?.startDate||m?.date||'';
+  document.getElementById('ms-end').value=m?.endDate||'';
+  document.getElementById('ms-desc').value=m?.desc||'';
+  document.getElementById('mo-ms').classList.add('on');
+  setTimeout(()=>document.getElementById('ms-title').focus(),80);
+}
+
+function saveMilestone(){
+  const title=document.getElementById('ms-title').value.trim(); if(!title)return;
+  const editId=document.getElementById('ms-edit-id').value;
+  const endVal=document.getElementById('ms-end').value;
+  const startVal=document.getElementById('ms-start').value;
+  const data={title,category:document.getElementById('ms-category').value.trim(),product:document.getElementById('ms-product').value.trim(),status:document.getElementById('ms-status').value,startDate:startVal,endDate:endVal,date:endVal||startVal,desc:document.getElementById('ms-desc').value.trim()};
+  if(editId){
+    const idx=milestones.findIndex(m=>String(m.id)===String(editId));
+    if(idx>-1) milestones[idx]={...milestones[idx],...data};
+    fbSet('milestones',editId,milestones.find(m=>String(m.id)===String(editId)));
+  } else {
+    const newMs={id:'m'+Date.now(),...data};
+    milestones.push(newMs);
+    fbSet('milestones',newMs.id,newMs);
+  }
+  closeMoDirect('mo-ms');
+  renderMs();
+}
+
+function deleteMilestone(id){
+  if(!confirm('Delete this important date?'))return;
+  milestones=milestones.filter(m=>String(m.id)!==String(id));
+  fbDelete('milestones',id);
+  renderMs();
+}
 
 /* ════════════════════════════════════════════════
    RENDER: CALENDAR  
@@ -1721,8 +1816,8 @@ function renderCalendar(){
    CUSTOMIZE
 ════════════════════════════════════════════════ */
 function renderCustomize(){
-  document.getElementById('col-list').innerHTML=customCols.map((c,i)=>`<div class="col-item"><i class="fa-solid fa-grip-vertical col-drag"></i><span style="flex:1;font-size:12.5px">${c.name}</span><span class="badge btag">${c.type}</span><button class="ibtn" onclick="removeCol(${i})"><i class="fa-solid fa-trash" style="font-size:11px"></i></button></div>`).join('');
-  document.getElementById('prio-list').innerHTML=prioTypes.map((p,i)=>`<div class="prio-item"><div class="prio-color-dot" style="background:${p.color}"></div><span style="flex:1;font-size:12.5px">${p.label}</span>${i>0?`<button class="ibtn" onclick="removePrio(${i})"><i class="fa-solid fa-trash" style="font-size:11px"></i></button>`:'<span style="font-size:10px;color:var(--tx3)">default</span>'}</div>`).join('');
+  document.getElementById('col-list').innerHTML=customCols.map((c,i)=>`<div class="col-item"><i class="fa-solid fa-grip-vertical col-drag"></i><input class="finp" value="${c.name}" style="flex:1;font-size:12.5px;padding:3px 7px;border-color:transparent;background:transparent" onchange="renameCustomCol(${i},this.value)" onfocus="this.style.borderColor=''" onblur="this.style.borderColor='transparent'" title="Click to rename"><span class="badge btag">${c.type}</span><button class="ibtn" onclick="removeCol(${i})"><i class="fa-solid fa-trash" style="font-size:11px"></i></button></div>`).join('');
+  document.getElementById('prio-list').innerHTML=prioTypes.map((p,i)=>`<div class="prio-item" draggable="true" id="prio-drag-${i}" ondragstart="prioDragStart(${i})" ondragover="prioDragOver(event,${i})" ondragleave="prioDragLeave(${i})" ondrop="prioDrop(event,${i})"><i class="fa-solid fa-grip-vertical" style="color:var(--tx3);cursor:grab;font-size:12px;flex-shrink:0"></i><div class="prio-color-dot" style="background:${p.color}"></div><span style="flex:1;font-size:12.5px">${p.label}</span><button class="ibtn" onclick="editPrioModal(${i})"><i class="fa-solid fa-pen" style="font-size:11px"></i></button>${prioTypes.length>1?`<button class="ibtn" onclick="removePrio(${i})"><i class="fa-solid fa-trash" style="font-size:11px"></i></button>`:''}</div>`).join('');
   document.getElementById('tag-manage').innerHTML=tags.map((t,i)=>`<span class="badge btag" style="font-size:12px;padding:4px 10px">${t} <span onclick="removeTag(${i})" style="cursor:pointer;margin-left:4px;color:var(--r600)">×</span></span>`).join('');
   const tt=document.getElementById('type-list');
   if(tt) tt.innerHTML=taskTypes.map((tp,i)=>`<div class="prio-item">
@@ -1738,9 +1833,62 @@ function addColModal(){ document.getElementById('col-type').onchange=function(){
 function saveCol(){ const name=document.getElementById('col-name').value.trim(),type=document.getElementById('col-type').value; if(!name)return; customCols.push({id:'c'+Date.now(),name,type}); closeMoDirect('mo-col'); renderCustomize(); fbSaveSettings(); }
 function removeCol(i){ customCols.splice(i,1); renderCustomize(); fbSaveSettings(); }
 
-function addPrioModal(){document.getElementById('mo-prio').classList.add('on');}
-function savePrio(){ const lbl=document.getElementById('prio-lbl').value.trim(),color=document.getElementById('prio-color').value; if(!lbl)return; prioTypes.push({id:'p'+Date.now(),label:lbl,color}); closeMoDirect('mo-prio'); renderCustomize(); populatePrioSelect(); fbSaveSettings(); }
-function removePrio(i){ prioTypes.splice(i,1); renderCustomize(); populatePrioSelect(); fbSaveSettings(); }
+const PRIO_COLORS=['#C0392B','#E24B4A','#E74C3C','#F08080','#E67E22','#EF9F27','#F39C12','#F1C40F','#D4AC0D','#27AE60','#5DCAA5','#1ABC9C','#16A085','#3498DB','#85B7EB','#2980B9','#1A5276','#9B59B6','#8E44AD','#AFA9EC','#EC407A','#F09595','#95A5A6','#888780','#2C3E50'];
+
+function renderPrioColorPalette(sel){
+  const el=document.getElementById('prio-color-palette'); if(!el)return;
+  el.innerHTML=PRIO_COLORS.map(c=>`<div class="color-swatch${sel===c?' sel':''}" style="background:${c}" onclick="selectPrioColor('${c}')" title="${c}"></div>`).join('');
+  const cur=sel||PRIO_COLORS[0];
+  document.getElementById('prio-color').value=cur;
+  document.getElementById('prio-color-preview').style.background=cur;
+  document.getElementById('prio-color-custom').value=cur;
+}
+function selectPrioColor(c){
+  document.getElementById('prio-color').value=c;
+  document.getElementById('prio-color-preview').style.background=c;
+  document.getElementById('prio-color-custom').value=c;
+  document.querySelectorAll('#prio-color-palette .color-swatch').forEach(el=>el.classList.toggle('sel',el.style.background===c||el.style.backgroundColor===c));
+}
+function addPrioModal(){
+  document.getElementById('prio-edit-idx').value='';
+  document.getElementById('prio-lbl').value='';
+  document.getElementById('mo-prio-ttl').textContent='Add Priority Type';
+  renderPrioColorPalette(PRIO_COLORS[0]);
+  document.getElementById('mo-prio').classList.add('on');
+  setTimeout(()=>document.getElementById('prio-lbl').focus(),80);
+}
+function editPrioModal(i){
+  const p=prioTypes[i]; if(!p)return;
+  document.getElementById('prio-edit-idx').value=i;
+  document.getElementById('prio-lbl').value=p.label;
+  document.getElementById('mo-prio-ttl').textContent='Edit Priority Type';
+  renderPrioColorPalette(p.color);
+  document.getElementById('mo-prio').classList.add('on');
+  setTimeout(()=>document.getElementById('prio-lbl').focus(),80);
+}
+function savePrio(){
+  const lbl=document.getElementById('prio-lbl').value.trim(); if(!lbl)return;
+  const color=document.getElementById('prio-color').value;
+  const editIdx=document.getElementById('prio-edit-idx').value;
+  if(editIdx!==''){const i=parseInt(editIdx);prioTypes[i]={...prioTypes[i],label:lbl,color};}
+  else prioTypes.push({id:'p'+Date.now(),label:lbl,color});
+  closeMoDirect('mo-prio'); renderCustomize(); populatePrioSelect(); fbSaveSettings();
+}
+function removePrio(i){ if(prioTypes.length<=1)return; prioTypes.splice(i,1); renderCustomize(); populatePrioSelect(); fbSaveSettings(); }
+
+/* ── Prio drag-to-reorder ── */
+let _prioDragIdx=null;
+function prioDragStart(i){ _prioDragIdx=i; }
+function prioDragOver(e,i){ e.preventDefault(); document.getElementById('prio-drag-'+i)?.classList.add('drag-over'); }
+function prioDragLeave(i){ document.getElementById('prio-drag-'+i)?.classList.remove('drag-over'); }
+function prioDrop(e,i){
+  e.preventDefault(); prioDragLeave(i);
+  if(_prioDragIdx===null||_prioDragIdx===i){_prioDragIdx=null;return;}
+  const moved=prioTypes.splice(_prioDragIdx,1)[0];
+  prioTypes.splice(i,0,moved);
+  _prioDragIdx=null;
+  fbSaveSettings(); renderCustomize(); populatePrioSelect();
+}
 
 function addTag(){ const n=prompt('New tag name:'); if(n?.trim()){tags.push(n.trim());renderCustomize();renderTagsInModal();fbSaveSettings();} }
 function removeTag(i){ tags.splice(i,1); renderCustomize(); renderTagsInModal(); fbSaveSettings(); }
@@ -1874,7 +2022,7 @@ function saveTask(){
 /* ════════════════════════════════════════════════
    EVENT MODAL
 ════════════════════════════════════════════════ */
-function openEventModal(){ document.getElementById('e-date').value=ds(TODAY); document.getElementById('mo-event').classList.add('on'); }
+function openEventModal(){ document.getElementById('e-date').value=ds(getToday()); document.getElementById('mo-event').classList.add('on'); }
 function saveEvent(){
   const title=document.getElementById('e-title').value.trim(); if(!title)return;
   const newEvent={id:'e'+Date.now(),title,date:document.getElementById('e-date').value,start:document.getElementById('e-start').value,end:document.getElementById('e-end').value,type:document.getElementById('e-type').value,link:document.getElementById('e-link').value,location:document.getElementById('e-location').value,attendees:document.getElementById('e-attendees').value,notes:document.getElementById('e-notes').value,gcal:document.getElementById('e-gcal').checked};
@@ -1892,7 +2040,7 @@ function closeMoDirect(id){ document.getElementById(id).classList.remove('on'); 
 function connectGCal(){ alert('Google Calendar setup:\n\n1. Cloud Console → Calendar API\n2. OAuth 2.0 Client ID\n3. Paste Client ID here\n\nOnce connected, Daily Schedule = your GCal for that day.'); }
 function globalSearch(q){}
 
-const TITLES={tasks:'My Tasks',team:'Team Tasks',week:'Week View',milestones:'Milestones',calendar:'Google Calendar',schedule:'Daily Schedule',customize:'Customize'};
+const TITLES={tasks:'My Tasks',team:'Team Tasks',week:'Week View',milestones:'Important Dates',calendar:'Google Calendar',schedule:'Daily Schedule',customize:'Customize'};
 function sv(name){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
@@ -1907,7 +2055,7 @@ function sv(name){
 }
 
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){['mo-task','mo-event','mo-col','mo-prio','mo-type'].forEach(closeMoDirect);closeSp();closeAllPanels();}
+  if(e.key==='Escape'){['mo-task','mo-event','mo-col','mo-prio','mo-type','mo-ms'].forEach(closeMoDirect);closeSp();closeAllPanels();}
   if(e.key==='n'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA') openTaskModal();
   if(e.key==='/'&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();document.getElementById('task-search-inp')?.focus();}
 });
@@ -1949,6 +2097,40 @@ async function init(){
 init();
 </script>
 
+<!-- IMPORTANT DATE (MILESTONE) MODAL -->
+<div class="mo" id="mo-ms" onclick="closeMo('mo-ms',event)">
+  <div class="modal" style="width:480px" onclick="event.stopPropagation()">
+    <div class="modal-hd">
+      <div class="modal-ttl" id="mo-ms-ttl">New Important Date</div>
+      <button class="ibtn" onclick="closeMoDirect('mo-ms')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="ms-edit-id">
+      <div class="frow"><label class="flbl">Title</label><input class="finp" id="ms-title" placeholder="What's the milestone?"></div>
+      <div class="f2">
+        <div><label class="flbl">Category</label><input class="finp" id="ms-category" placeholder="e.g. Launch, Sales, Product"></div>
+        <div><label class="flbl">Project / Product</label><input class="finp" id="ms-product" placeholder="e.g. PMS, Potentia"></div>
+      </div>
+      <div class="frow"><label class="flbl">Status</label>
+        <select class="fsel" id="ms-status">
+          <option value="upcoming">Upcoming</option>
+          <option value="in-progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="f2">
+        <div><label class="flbl">Start date</label><input class="finp" id="ms-start" type="date"></div>
+        <div><label class="flbl">End date</label><input class="finp" id="ms-end" type="date"></div>
+      </div>
+      <div class="frow"><label class="flbl">Description</label><textarea class="ftxt" id="ms-desc" placeholder="Context or delivery notes…"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-gh btn-sm" onclick="closeMoDirect('mo-ms')">Cancel</button>
+      <button class="btn btn-pr btn-sm" onclick="saveMilestone()"><i class="fa-solid fa-check"></i> Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- COL MANAGER MODAL -->
 <div class="mo" id="mo-col-mgr" onclick="closeMo('mo-col-mgr',event)">
   <div class="modal" style="width:420px" onclick="event.stopPropagation()">
@@ -1975,7 +2157,7 @@ function renderColMgrList(){
     </div>`).join('');
   const custRows=customCols.map((c,i)=>`
     <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--bd)">
-      <input type="checkbox" checked disabled style="accent-color:var(--p600);width:14px;height:14px;flex-shrink:0;opacity:.4" title="Always visible">
+      <input type="checkbox" ${c.hidden?'':'checked'} onchange="toggleCustomColVis(${i},this.checked)" style="accent-color:var(--p600);width:14px;height:14px;cursor:pointer;flex-shrink:0">
       <input class="finp" value="${c.name}" style="flex:1;padding:4px 7px;font-size:12.5px" onchange="renameCustomCol(${i},this.value)">
       <span class="badge btag" style="flex-shrink:0;opacity:.6">${c.type}</span>
       <button class="ibtn" onclick="removeColInline(${i});renderColMgrList()" title="Remove"><i class="fa-solid fa-trash" style="font-size:11px;color:var(--r600)"></i></button>
@@ -1983,6 +2165,7 @@ function renderColMgrList(){
   el.innerHTML=defRows+custRows;
 }
 function toggleColVis(id,visible){ const c=colDefs.find(c=>c.id===id);if(!c)return;c.hidden=!visible;fbSaveSettings();renderTasksView();renderTeam(); }
+function toggleCustomColVis(i,visible){ if(!customCols[i])return;customCols[i].hidden=!visible;fbSaveSettings();renderTasksView();renderTeam(); }
 function renameColDef(id,name){ const c=colDefs.find(c=>c.id===id);if(!c||!name.trim())return;c.label=name.trim();fbSaveSettings();renderTasksView();renderTeam(); }
 function renameCustomCol(i,name){ if(!customCols[i]||!name.trim())return;customCols[i].name=name.trim();fbSaveSettings();renderTasksView();renderTeam(); }
 </script>
