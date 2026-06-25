@@ -1520,6 +1520,63 @@ function cellAssigneeHtml(t){
 function cellSetDue(tid,date,time){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.due=date; t.dueTime=time||''; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetAssignee(tid,a){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.assignee=a; fbSet('tasks',tid,t); closeCellDd(); }
 
+/* ── Subtask tree helpers ── */
+let _pendingSub=null;
+function findSubInTree(subs,sid){
+  for(const s of (subs||[])){
+    if(String(s.id)===String(sid)) return s;
+    const f=findSubInTree(s.subtasks,sid); if(f) return f;
+  }
+  return null;
+}
+function removeSubFromTree(subs,sid){
+  for(let i=0;i<(subs||[]).length;i++){
+    if(String(subs[i].id)===String(sid)){subs.splice(i,1);return true;}
+    if(removeSubFromTree(subs[i].subtasks||[],sid)) return true;
+  }
+  return false;
+}
+function subTaskRows(tid,subs,cols,context,q,depth){
+  let h='';
+  for(const s of (subs||[])){
+    h+=subTaskRow(tid,s,cols,context,q,depth);
+    h+=subTaskRows(tid,s.subtasks||[],cols,context,q,depth+1);
+    if(_pendingSub?.tid===String(tid)&&_pendingSub?.parentSid===String(s.id)) h+=pendingSubRow(depth+1);
+  }
+  return h;
+}
+function pendingSubRow(depth){
+  const pl=22+depth*18;
+  return `<tr class="subtask-row" id="sub-new-row"><td></td><td colspan="99"><div style="display:flex;align-items:center;gap:6px;padding-left:${pl}px;padding-right:8px;padding-top:3px;padding-bottom:3px">
+    <span class="subtask-tree">└</span>
+    <input class="finp" id="sub-new-inp" placeholder="Subtask name…" style="flex:1;font-size:12.5px;padding:3px 8px;min-width:0"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();confirmNewSub();}if(event.key==='Escape')cancelNewSub()"
+           onblur="setTimeout(()=>{if(_pendingSub)cancelNewSub();},150)">
+    <button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="confirmNewSub()"><i class="fa-solid fa-check"></i></button>
+    <button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="cancelNewSub()">✕</button>
+  </div></td></tr>`;
+}
+function quickAddSubtaskInline(tid,parentSid=null,depth=0){
+  _pendingSub={tid:String(tid),parentSid:parentSid?String(parentSid):null,depth};
+  renderTasksView(); renderTeam();
+  requestAnimationFrame(()=>{const i=document.getElementById('sub-new-inp');if(i)i.focus();});
+}
+function confirmNewSub(){
+  if(!_pendingSub)return;
+  const inp=document.getElementById('sub-new-inp'); if(!inp)return;
+  const text=inp.value.trim(); if(!text){cancelNewSub();return;}
+  const {tid,parentSid}=_pendingSub;
+  const t=tasks.find(t=>String(t.id)===tid); if(!t)return;
+  const newSub={id:'s'+Date.now(),text,status:'todo',prio:'',due:'',dueTime:'',assignee:'me',notes:'',subtasks:[]};
+  if(!parentSid){if(!t.subtasks)t.subtasks=[];t.subtasks.push(newSub);}
+  else{const p=findSubInTree(t.subtasks||[],parentSid);if(!p)return;if(!p.subtasks)p.subtasks=[];p.subtasks.push(newSub);}
+  _pendingSub=null;
+  fbSet('tasks',tid,t);
+  renderTasksView(); renderTeam();
+  if(activeSp===tid) renderSpSubtasks(tid);
+}
+function cancelNewSub(){ if(!_pendingSub)return; _pendingSub=null; renderTasksView(); renderTeam(); }
+
 function taskRow(t, cols, context, q=''){
   const subs=t.subtasks||[];
   const sdone=subs.filter(s=>s.done).length;
@@ -1533,7 +1590,7 @@ function taskRow(t, cols, context, q=''){
   }).join('');
   return `<tr class="${t.status==='done'?'done-row':''}" onclick="openSp('${t.id}')" style="cursor:pointer">
     <td onclick="event.stopPropagation();toggleTask('${t.id}')"><div class="chk ${t.status==='done'?'done':''}" style="width:15px;height:15px">${t.status==='done'?'<i class="fa-solid fa-check" style="font-size:8px;color:#fff"></i>':''}</div></td>
-    ${vis('title')?`<td><span class="tt">${titleHl}</span>${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}<button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickOpenSubAdd('${t.id}')" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></td>`:''}
+    ${vis('title')?`<td><span class="tt">${titleHl}</span>${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}<button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${t.id}',null,0)" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellPrioHtml(t)}</td>`:''}
     ${vis('type')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTypeHtml(t)}</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellStatusHtml(t)}</td>`:''}
@@ -1542,10 +1599,10 @@ function taskRow(t, cols, context, q=''){
     ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTagsHtml(t)}</td>`:''}
     ${customCells}
     <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">${context==='team'?`<button class="ibtn" onclick="claimTask('${t.id}')" title="Move to My Tasks"><i class="fa-solid fa-user-check" style="font-size:10px"></i></button>`:''}<button class="ibtn" onclick="openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="ibtn" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
-  </tr>${(t.subtasks||[]).map(s=>subTaskRow(t.id,s,cols,context,q)).join('')}`;
+  </tr>${subTaskRows(t.id,t.subtasks||[],cols,context,q,0)}${_pendingSub?.tid===String(t.id)&&!_pendingSub?.parentSid?pendingSubRow(0):''}`;
 }
 
-function subTaskRow(tid,s,cols,context,q){
+function subTaskRow(tid,s,cols,context,q,depth=0){
   const sid=s.id;
   const status=s.status||(s.done?'done':'todo');
   const isDone=status==='done';
@@ -1571,7 +1628,7 @@ function subTaskRow(tid,s,cols,context,q){
   const customCells=(cols||customCols).filter(c=>!c.hidden).map(()=>`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`).join('');
   return `<tr class="subtask-row${isDone?' done-row':''}" onclick="openSp('${tid}')">
     <td onclick="event.stopPropagation();spTogSubStatus('${tid}','${sid}')"><div class="chk" style="width:13px;height:13px;${chkStyle}">${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div></td>
-    ${vis('title')?`<td><div class="subtask-indent"><span class="subtask-tree">└</span><span style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}">${q?hlText(s.text||'',q):s.text||''}</span></div></td>`:''}
+    ${vis('title')?`<td><div class="subtask-indent" style="padding-left:${22+depth*18}px"><span class="subtask-tree">└</span><span style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}">${q?hlText(s.text||'',q):s.text||''}</span><button class="sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${tid}','${sid}',${depth+1})" title="Add sub-subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${prioCell}</td>`:''}
     ${vis('type')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${statusCell}</td>`:''}
@@ -1994,20 +2051,20 @@ function spNotesChange(){
 }
 function editFromSp(){if(activeSp)openEditModal(activeSp);}
 function deleteFromSp(){if(activeSp)deleteTask(activeSp);}
-function renderSpSubtasks(tid){
-  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const subs=t.subtasks||[];
-  const rows=subs.map(s=>{
+function renderSpSubItems(tid,subs,depth){
+  return (subs||[]).map(s=>{
+    const ml=depth*16;
     const status=s.status||(s.done?'done':'todo');
-    const isDone=status==='done';
-    const isIP=status==='in-progress';
+    const isDone=status==='done', isIP=status==='in-progress';
     const chkCls=isDone?'done':isIP?'inprog':'';
     const statusLabel={todo:'To Do','in-progress':'In Progress',done:'Done'}[status]||'To Do';
-    const statusBg={todo:'var(--g50)','in-progress':'var(--a50)',done:'var(--t50)'}[status]||'var(--g50)';
-    const statusCol={todo:'var(--tx2)','in-progress':'var(--a600)',done:'var(--t600)'}[status]||'var(--tx2)';
+    const statusBg={todo:'var(--g50)','in-progress':'var(--a50)',done:'var(--t50)'}[status];
+    const statusCol={todo:'var(--tx2)','in-progress':'var(--a600)',done:'var(--t600)'}[status];
     const pr=prioTypes.find(p=>p.id===s.prio);
     const safeText=(s.text||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    return `<div class="sub-rich-row" id="sub-rich-${s.id}">
+    const children=renderSpSubItems(tid,s.subtasks||[],depth+1);
+    const cid=`sp-cadd-${s.id}`;
+    return `<div class="sub-rich-row" id="sub-rich-${s.id}" style="${ml?'margin-left:'+ml+'px;padding-left:8px;border-left:2px solid var(--bd)':''}">
       <div class="sub-rich-chk ${chkCls}" onclick="spTogSub('${tid}','${s.id}')">
         ${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':isIP?'<i class="fa-solid fa-spinner" style="font-size:7px;color:var(--a600)"></i>':''}
       </div>
@@ -2037,8 +2094,7 @@ function renderSpSubtasks(tid){
             </select>
           </div>
           <div class="sub-exp-row"><span class="sub-exp-lbl">Due date</span>
-            <input type="date" class="finp" style="font-size:11.5px;padding:2px 8px" value="${s.due||''}"
-                   onchange="spSaveSubField('${tid}','${s.id}','due',this.value)">
+            <input type="date" class="finp" style="font-size:11.5px;padding:2px 8px" value="${s.due||''}" onchange="spSaveSubField('${tid}','${s.id}','due',this.value)">
           </div>
           <div class="sub-exp-row"><span class="sub-exp-lbl">Assignee</span>
             <select class="fsel" style="font-size:11.5px;padding:2px 8px" onchange="spSaveSubField('${tid}','${s.id}','assignee',this.value)">
@@ -2046,17 +2102,30 @@ function renderSpSubtasks(tid){
             </select>
           </div>
           <div class="sub-exp-row"><span class="sub-exp-lbl">Notes</span>
-            <input class="finp" style="font-size:11.5px;padding:2px 8px;flex:1" value="${(s.notes||'').replace(/"/g,'&quot;')}"
-                   placeholder="Add notes…" onchange="spSaveSubField('${tid}','${s.id}','notes',this.value)">
+            <input class="finp" style="font-size:11.5px;padding:2px 8px;flex:1" value="${(s.notes||'').replace(/"/g,'&quot;')}" placeholder="Add notes…" onchange="spSaveSubField('${tid}','${s.id}','notes',this.value)">
+          </div>
+        </div>
+        ${children?`<div style="margin-top:6px">${children}</div>`:''}
+        <div id="${cid}" style="display:none;margin-top:6px;padding:6px 0;border-top:1px solid var(--bd)">
+          <input class="finp" id="${cid}-inp" placeholder="Child subtask name…" style="margin-bottom:5px;font-size:12px"
+                 onkeydown="if(event.key==='Enter')spSubmitNewSub('${tid}','${s.id}');if(event.key==='Escape')spHideChildAdd('${s.id}')">
+          <div style="display:flex;gap:5px">
+            <button class="btn btn-gh btn-xs" onclick="spHideChildAdd('${s.id}')">Cancel</button>
+            <button class="btn btn-pr btn-xs" onclick="spSubmitNewSub('${tid}','${s.id}')"><i class="fa-solid fa-check"></i> Add</button>
           </div>
         </div>
       </div>
       <div class="sub-rich-actions">
-        <button class="ibtn" onclick="spExpandSub('${s.id}')" title="Edit fields"><i class="fa-solid fa-sliders" style="font-size:10px" id="sub-exp-icon-${s.id}"></i></button>
-        <button class="ibtn" onclick="spDeleteSub('${tid}','${s.id}')" title="Delete subtask"><i class="fa-solid fa-trash" style="font-size:10px"></i></button>
+        <button class="ibtn" onclick="spShowChildAdd('${s.id}')" title="Add child subtask"><i class="fa-solid fa-plus" style="font-size:10px"></i></button>
+        <button class="ibtn" onclick="spExpandSub('${s.id}')" title="Edit fields"><i class="fa-solid fa-sliders" style="font-size:10px"></i></button>
+        <button class="ibtn" onclick="spDeleteSub('${tid}','${s.id}')" title="Delete"><i class="fa-solid fa-trash" style="font-size:10px"></i></button>
       </div>
     </div>`;
   }).join('');
+}
+function renderSpSubtasks(tid){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const rows=renderSpSubItems(tid,t.subtasks||[],0);
   const addForm=`<div id="sub-add-row" style="display:none;padding:8px 0 4px;border-top:1px solid var(--bd);margin-top:4px">
     <input class="finp" id="sub-add-inp" placeholder="Subtask title…" style="margin-bottom:6px"
            onkeydown="if(event.key==='Enter')spSubmitNewSub('${tid}');if(event.key==='Escape')spHideAddForm()">
@@ -2068,21 +2137,24 @@ function renderSpSubtasks(tid){
   const el=document.getElementById('sp-subtasks');
   if(el) el.innerHTML=(rows||'<div style="font-size:12px;color:var(--tx3);padding:4px 0">No subtasks yet — click + to add one</div>')+addForm;
 }
+function spShowChildAdd(sid){ const el=document.getElementById('sp-cadd-'+sid); if(el){el.style.display='block';setTimeout(()=>{const i=document.getElementById('sp-cadd-'+sid+'-inp');if(i)i.focus();},20);} }
+function spHideChildAdd(sid){ const el=document.getElementById('sp-cadd-'+sid); if(el)el.style.display='none'; }
 function spShowAddForm(){
   const f=document.getElementById('sub-add-row'); if(!f)return;
   f.style.display='block';
   setTimeout(()=>{const i=document.getElementById('sub-add-inp');if(i)i.focus();},30);
 }
 function spHideAddForm(){ const f=document.getElementById('sub-add-row'); if(f)f.style.display='none'; }
-function spSubmitNewSub(tid){
-  const inp=document.getElementById('sub-add-inp'); if(!inp)return;
+function spSubmitNewSub(tid,parentSid){
+  const inp=document.getElementById(parentSid?`sp-cadd-${parentSid}-inp`:'sub-add-inp'); if(!inp)return;
   const txt=inp.value.trim(); if(!txt)return;
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  if(!t.subtasks) t.subtasks=[];
-  t.subtasks.push({id:'s'+Date.now(),text:txt,status:'todo',prio:'',due:'',dueTime:'',assignee:'me',notes:''});
+  const newSub={id:'s'+Date.now(),text:txt,status:'todo',prio:'',due:'',dueTime:'',assignee:'me',notes:'',subtasks:[]};
+  if(!parentSid){if(!t.subtasks)t.subtasks=[];t.subtasks.push(newSub);}
+  else{const p=findSubInTree(t.subtasks||[],parentSid);if(!p)return;if(!p.subtasks)p.subtasks=[];p.subtasks.push(newSub);}
   fbSet('tasks',tid,t);
-  spHideAddForm();
-  renderSpSubtasks(tid);
+  if(parentSid) spHideChildAdd(parentSid); else spHideAddForm();
+  renderSpSubtasks(tid); renderTasksView(); renderTeam();
 }
 function spExpandSub(sid){
   const exp=document.getElementById('sub-exp-'+sid); if(!exp)return;
@@ -2090,31 +2162,27 @@ function spExpandSub(sid){
 }
 function spSaveSubField(tid,sid,field,val){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
-  s[field]=val;
-  if(field==='status') s.done=val==='done';
-  fbSet('tasks',tid,t);
-  closeCellDd();
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
+  s[field]=val; if(field==='status') s.done=val==='done';
+  fbSet('tasks',tid,t); closeCellDd();
   renderTasksView(); renderTeam();
   if(activeSp===String(tid)) renderSpSubtasks(tid);
 }
 function cellSetSubDue(tid,sid,dateVal,timeVal){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
   s.due=dateVal; s.dueTime=timeVal||'';
-  fbSet('tasks',tid,t);
-  closeCellDd();
+  fbSet('tasks',tid,t); closeCellDd();
   renderTasksView(); renderTeam();
   if(activeSp===String(tid)) renderSpSubtasks(tid);
 }
 function spTogSubStatus(tid,sid){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
   const cur=s.status||(s.done?'done':'todo');
   s.status=cur==='todo'?'in-progress':cur==='in-progress'?'done':'todo';
   s.done=s.status==='done';
-  fbSet('tasks',tid,t);
-  renderTasksView(); renderTeam();
+  fbSet('tasks',tid,t); renderTasksView(); renderTeam();
   if(activeSp===String(tid)) renderSpSubtasks(tid);
 }
 function spEditSubTitle(tid,sid){
@@ -2131,28 +2199,26 @@ function spCancelSubTitle(sid){
 }
 function spSaveSubTitle(tid,sid,val){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
   if(val.trim()) s.text=val.trim();
-  fbSet('tasks',tid,t);
-  renderSpSubtasks(tid);
+  fbSet('tasks',tid,t); renderSpSubtasks(tid); renderTasksView(); renderTeam();
 }
 function spDeleteSub(tid,sid){
   if(!confirm('Delete this subtask?')) return;
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  t.subtasks=(t.subtasks||[]).filter(s=>String(s.id)!==String(sid));
-  fbSet('tasks',tid,t);
-  renderSpSubtasks(tid);
+  removeSubFromTree(t.subtasks||[],sid);
+  fbSet('tasks',tid,t); renderTasksView(); renderTeam();
+  if(activeSp===String(tid)) renderSpSubtasks(tid);
 }
 function addSubtask(){ spShowAddForm(); }
 function quickOpenSubAdd(id){ openSp(id); setTimeout(()=>spShowAddForm(),60); }
 function spTogSub(tid,sid){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
-  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
   const cur=s.status||(s.done?'done':'todo');
   s.status=cur==='todo'?'in-progress':cur==='in-progress'?'done':'todo';
   s.done=s.status==='done';
-  fbSet('tasks',tid,t);
-  renderSpSubtasks(tid);
+  fbSet('tasks',tid,t); renderSpSubtasks(tid); renderTasksView(); renderTeam();
 }
 
 /* ════════════════════════════════════════════════
