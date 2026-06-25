@@ -381,7 +381,8 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
 .sub-exp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .sub-exp-lbl{color:var(--tx3);width:62px;flex-shrink:0;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
 .sub-rich-actions{display:flex;gap:2px;flex-shrink:0}
-.sub-qadd-btn{opacity:0;transition:opacity .15s;margin-left:5px;vertical-align:middle;flex-shrink:0}
+.sub-qadd-btn{opacity:0;transition:opacity .15s;margin-left:4px;display:inline-flex;width:18px;height:18px;border-radius:var(--r-sm);border:none;background:transparent;cursor:pointer;align-items:center;justify-content:center;color:var(--tx3);vertical-align:middle;flex-shrink:0}
+.sub-qadd-btn:hover{background:var(--g100);color:var(--p600)}
 .task-item:hover .sub-qadd-btn,tr:hover .sub-qadd-btn{opacity:1}
 
 /* schedule gcal note */
@@ -1421,12 +1422,11 @@ function taskHtml(t, q=''){
   return `<div class="task-item ${t.status==='done'?'done':''}" onclick="openSp('${t.id}')" data-id="${t.id}">
     <div class="chk ${t.status==='done'?'done':''}" onclick="event.stopPropagation();toggleTask('${t.id}')">${t.status==='done'?'<i class="fa-solid fa-check" style="font-size:9px;color:#fff"></i>':''}</div>
     <div class="tbody">
-      <div class="ttext">${titleHl}</div>
+      <div class="ttext">${titleHl}<button class="sub-qadd-btn" onclick="event.stopPropagation();quickOpenSubAdd('${t.id}')" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div>
       <div class="tmeta">${prioBadgeHtml(t.prio)}${typeBadge(t.type)}${statusBadge(t.status,t.id)}${carryBadge}${dueLbl}${tagBadges}${subHint}</div>
       ${subListHtml}
     </div>
     <div class="tact">
-      <button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickOpenSubAdd('${t.id}')" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:10px"></i></button>
       ${subs.length?`<button class="ibtn" onclick="event.stopPropagation();toggleSubList('${t.id}')"><i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>`:''}
       <button class="ibtn" onclick="event.stopPropagation();openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button>
       <button class="ibtn" onclick="event.stopPropagation();deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button>
