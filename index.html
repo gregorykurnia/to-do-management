@@ -381,6 +381,12 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
 .sub-exp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
 .sub-exp-lbl{color:var(--tx3);width:62px;flex-shrink:0;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
 .sub-rich-actions{display:flex;gap:2px;flex-shrink:0}
+/* Indented subtask rows in table view */
+.subtask-row td{background:var(--g50);border-top:none}
+.subtask-row:hover td{background:var(--g100)}
+.subtask-row.done-row td{background:var(--g50)}
+.subtask-indent{display:flex;align-items:center;gap:6px;padding-left:22px}
+.subtask-tree{color:var(--bd2);font-size:13px;flex-shrink:0;user-select:none;line-height:1}
 .sub-qadd-btn{opacity:0;transition:opacity .15s;margin-left:4px;display:inline-flex;width:18px;height:18px;border-radius:var(--r-sm);border:none;background:transparent;cursor:pointer;align-items:center;justify-content:center;color:var(--tx3);vertical-align:middle;flex-shrink:0}
 .sub-qadd-btn:hover{background:var(--g100);color:var(--p600)}
 .task-item:hover .sub-qadd-btn,tr:hover .sub-qadd-btn{opacity:1}
@@ -1536,6 +1542,44 @@ function taskRow(t, cols, context, q=''){
     ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTagsHtml(t)}</td>`:''}
     ${customCells}
     <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">${context==='team'?`<button class="ibtn" onclick="claimTask('${t.id}')" title="Move to My Tasks"><i class="fa-solid fa-user-check" style="font-size:10px"></i></button>`:''}<button class="ibtn" onclick="openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="ibtn" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
+  </tr>${(t.subtasks||[]).map(s=>subTaskRow(t.id,s,cols,context,q)).join('')}`;
+}
+
+function subTaskRow(tid,s,cols,context,q){
+  const sid=s.id;
+  const status=s.status||(s.done?'done':'todo');
+  const isDone=status==='done';
+  const vis=id=>!colDefs.find(c=>c.id===id)?.hidden;
+  const chkStyle=isDone?'background:var(--t600);border-color:var(--t600)':status==='in-progress'?'background:var(--a200);border-color:var(--a400)':'';
+  // Prio cell
+  const prioDd=`cdd-sp-${sid}`;
+  const hasPrio=prioTypes.find(p=>p.id===s.prio);
+  const prioDisp=hasPrio?prioBadgeHtml(s.prio):`<span style="color:var(--tx3);font-size:11px">—</span>`;
+  const prioCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${prioDd}')">${prioDisp}<div class="cell-dd" id="${prioDd}"><div class="cell-dd-item" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','prio','');closeCellDd()"><span style="color:var(--tx3);font-size:11px">— none —</span></div>${prioTypes.map(p=>`<div class="cell-dd-item${s.prio===p.id?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','prio','${p.id}');closeCellDd()"><span style="width:8px;height:8px;border-radius:50%;background:${p.color};display:inline-block"></span>${p.label}</div>`).join('')}</div></div>`;
+  // Status cell
+  const statusDd=`cdd-ss-${sid}`;
+  const slist=[['todo','bstodo','To Do'],['in-progress','bsinprog','In Progress'],['done','bsdone','Done']];
+  const statusCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${statusDd}')">${statusBadge(status)}<div class="cell-dd" id="${statusDd}">${slist.map(([v,cls,lbl])=>`<div class="cell-dd-item${status===v?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','status','${v}');closeCellDd()"><span class="badge ${cls}" style="font-size:10px">${lbl}</span></div>`).join('')}</div></div>`;
+  // Due cell
+  const dueDd=`cdd-sd-${sid}`;
+  const ovd=isOvd(s.due)&&!isDone;
+  const dueDisp=s.due?`<span style="font-size:11.5px;color:${ovd?'var(--r600)':'var(--tx2)'}">${fmtDate(s.due)}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+  const dueCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${dueDd}')">${dueDisp}<div class="cell-dd" id="${dueDd}" style="min-width:210px;padding:8px"><div style="font-size:10.5px;font-weight:600;color:var(--tx3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Due date</div><input type="date" id="${dueDd}-date" class="finp" style="font-size:12px;padding:5px 8px;margin-bottom:8px" value="${s.due||''}" onclick="event.stopPropagation()"><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn btn-xs btn-gh" onclick="event.stopPropagation();cellSetSubDue('${tid}','${sid}','','')">Clear</button><button class="btn btn-xs btn-pr" onclick="event.stopPropagation();cellSetSubDue('${tid}','${sid}',document.getElementById('${dueDd}-date').value,'')">Set</button></div></div></div>`;
+  // Assignee cell
+  const avDd=`cdd-sa-${sid}`;
+  const assigneeCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${avDd}')">${avHtml(s.assignee||'me',20)}<div class="cell-dd" id="${avDd}">${Object.keys(AMAP).map(a=>`<div class="cell-dd-item${(s.assignee||'me')===a?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','assignee','${a}');closeCellDd()">${avHtml(a,18)} <span style="font-size:12px">${ANAME[a]||a}</span></div>`).join('')}</div></div>`;
+  const customCells=(cols||customCols).filter(c=>!c.hidden).map(()=>`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`).join('');
+  return `<tr class="subtask-row${isDone?' done-row':''}" onclick="openSp('${tid}')">
+    <td onclick="event.stopPropagation();spTogSubStatus('${tid}','${sid}')"><div class="chk" style="width:13px;height:13px;${chkStyle}">${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div></td>
+    ${vis('title')?`<td><div class="subtask-indent"><span class="subtask-tree">└</span><span style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}">${q?hlText(s.text||'',q):s.text||''}</span></div></td>`:''}
+    ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${prioCell}</td>`:''}
+    ${vis('type')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
+    ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${statusCell}</td>`:''}
+    ${vis('due')?`<td onclick="event.stopPropagation()" class="cell-editable">${dueCell}</td>`:''}
+    ${vis('assignee')?`<td onclick="event.stopPropagation()" class="cell-editable">${assigneeCell}</td>`:''}
+    ${vis('tags')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
+    ${customCells}
+    <td onclick="event.stopPropagation()"><button class="ibtn" onclick="spDeleteSub('${tid}','${sid}')" title="Delete subtask"><i class="fa-solid fa-trash" style="font-size:10px"></i></button></td>
   </tr>`;
 }
 
@@ -2050,7 +2094,28 @@ function spSaveSubField(tid,sid,field,val){
   s[field]=val;
   if(field==='status') s.done=val==='done';
   fbSet('tasks',tid,t);
-  renderSpSubtasks(tid);
+  closeCellDd();
+  renderTasksView(); renderTeam();
+  if(activeSp===String(tid)) renderSpSubtasks(tid);
+}
+function cellSetSubDue(tid,sid,dateVal,timeVal){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  s.due=dateVal; s.dueTime=timeVal||'';
+  fbSet('tasks',tid,t);
+  closeCellDd();
+  renderTasksView(); renderTeam();
+  if(activeSp===String(tid)) renderSpSubtasks(tid);
+}
+function spTogSubStatus(tid,sid){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  const cur=s.status||(s.done?'done':'todo');
+  s.status=cur==='todo'?'in-progress':cur==='in-progress'?'done':'todo';
+  s.done=s.status==='done';
+  fbSet('tasks',tid,t);
+  renderTasksView(); renderTeam();
+  if(activeSp===String(tid)) renderSpSubtasks(tid);
 }
 function spEditSubTitle(tid,sid){
   const span=document.getElementById('sub-span-'+sid);
