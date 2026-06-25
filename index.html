@@ -1500,6 +1500,7 @@ function cellSetPrio(tid,pid){ const t=tasks.find(t=>String(t.id)===String(tid))
 function cellSetType(tid,typ){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.type=typ; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetStatus(tid,st){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.status=st; fbSet('tasks',tid,t); closeCellDd(); if(String(activeSp)===String(tid))openSp(tid); }
 function cellSetCustom(tid,colId,val){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; if(!t.custom)t.custom={}; t.custom[colId]=String(val); fbSet('tasks',tid,t); closeCellDd(); }
+function spSaveSubCustom(tid,sid,colId,val){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; const s=findSubInTree(t.subtasks||[],sid);if(!s)return; if(!s.custom)s.custom={}; s.custom[colId]=String(val); fbSet('tasks',tid,t); closeCellDd(); renderTasksView();renderTeam(); if(activeSp===String(tid))renderSpSubtasks(tid); }
 
 let colWidths={};
 let _rzState=null;
@@ -1689,7 +1690,46 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
   // Assignee cell
   const avDd=`cdd-sa-${sid}`;
   const assigneeCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${avDd}')">${avHtml(s.assignee||'me',20)}<div class="cell-dd" id="${avDd}">${Object.keys(AMAP).map(a=>`<div class="cell-dd-item${(s.assignee||'me')===a?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','assignee','${a}');closeCellDd()">${avHtml(a,18)} <span style="font-size:12px">${ANAME[a]||a}</span></div>`).join('')}</div></div>`;
-  const customCells=(cols||customCols).filter(c=>!c.hidden).map(()=>`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`).join('');
+  const customCells=(cols||customCols).filter(c=>!c.hidden).map(col=>{
+    const raw=(s.custom||{})[col.id];
+    const val=raw!=null?String(raw):'';
+    const ddId=`cdd-sc-${sid}-${col.id}`;
+    if(col.type==='checkbox'){
+      const chk=val==='true'||val==='1';
+      return`<td onclick="event.stopPropagation()"><input type="checkbox" ${chk?'checked':''} onchange="spSaveSubCustom('${tid}','${sid}','${col.id}',this.checked?'true':'')" style="accent-color:var(--p600)"></td>`;
+    }
+    const safeVal=val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const preview=val.length>32?val.substring(0,32)+'…':val;
+    const dispHtml=val?`<span style="font-size:12px;color:var(--tx2);white-space:pre-wrap;word-break:break-word">${preview}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+    if(col.type==='url'){
+      const link=val?`<a href="${safeVal}" target="_blank" onclick="event.stopPropagation()" style="color:var(--b600);font-size:11px">${val.replace(/^https?:\/\//,'').substring(0,22)}…</a>`:dispHtml;
+      return`<td onclick="event.stopPropagation()" class="cell-editable"><div class="cell-edit-wrap" onclick="toggleCellDd('${ddId}')">
+        ${link}
+        <div class="cell-dd" id="${ddId}" style="min-width:240px;padding:8px" onclick="event.stopPropagation()">
+          <input class="finp" id="${ddId}-inp" type="url" placeholder="https://…" value="${safeVal}" style="margin-bottom:6px;font-size:12px"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();spSaveSubCustom('${tid}','${sid}','${col.id}',this.value);}if(event.key==='Escape')closeCellDd()">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button>
+            <button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();spSaveSubCustom('${tid}','${sid}','${col.id}',document.getElementById('${ddId}-inp').value)">Save</button>
+          </div>
+        </div>
+      </div></td>`;
+    }
+    const isNum=col.type==='number';
+    const inputEl=isNum
+      ?`<input class="finp" id="${ddId}-inp" type="number" value="${safeVal}" style="margin-bottom:6px;font-size:12px" onkeydown="if(event.key==='Enter'){event.preventDefault();spSaveSubCustom('${tid}','${sid}','${col.id}',this.value);}if(event.key==='Escape')closeCellDd()">`
+      :`<textarea class="finp" id="${ddId}-inp" rows="3" style="resize:vertical;font-size:12px;margin-bottom:6px;min-height:60px" onkeydown="if(event.key==='Escape')closeCellDd()">${safeVal}</textarea>`;
+    return`<td onclick="event.stopPropagation()" class="cell-editable"><div class="cell-edit-wrap" onclick="toggleCellDd('${ddId}')">
+      ${dispHtml}
+      <div class="cell-dd" id="${ddId}" style="min-width:220px;padding:8px" onclick="event.stopPropagation()">
+        ${inputEl}
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button>
+          <button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();spSaveSubCustom('${tid}','${sid}','${col.id}',document.getElementById('${ddId}-inp').value)">Save</button>
+        </div>
+      </div>
+    </div></td>`;
+  }).join('');
   return `<tr class="subtask-row${isDone?' done-row':''}" onclick="openSp('${tid}')">
     <td onclick="event.stopPropagation();spTogSubStatus('${tid}','${sid}')"><div class="chk" style="width:13px;height:13px;${chkStyle}">${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div></td>
     ${vis('title')?`<td><div class="subtask-indent" style="padding-left:${22+depth*18}px"><span class="subtask-tree">└</span><span style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}">${q?hlText(s.text||'',q):s.text||''}</span><button class="sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${tid}','${sid}',${depth+1})" title="Add sub-subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div></td>`:''}
