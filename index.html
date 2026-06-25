@@ -365,6 +365,22 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
 .sub-inline-add:hover{color:var(--p600)}
 .sub-inline-input{display:none;border:none;outline:none;border-bottom:1px solid var(--bd2);font-size:12px;font-family:inherit;padding:2px 4px;width:180px;color:var(--tx);background:transparent;margin-left:21px}
 .sub-inline-input.open{display:inline-block}
+/* rich subtasks in side panel */
+.sub-rich-row{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)}
+.sub-rich-row:last-of-type{border-bottom:none}
+.sub-rich-chk{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--g200);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:all .12s}
+.sub-rich-chk.done{background:var(--t600);border-color:var(--t600)}
+.sub-rich-chk.inprog{background:var(--a200);border-color:var(--a400)}
+.sub-rich-body{flex:1;min-width:0}
+.sub-rich-title{font-size:12.5px;color:var(--tx);cursor:text;display:block;line-height:1.3}
+.sub-rich-title.done{text-decoration:line-through;color:var(--tx3)}
+.sub-rich-title-inp{display:none;border:none;border-bottom:1.5px solid var(--p400);outline:none;font-size:12.5px;font-family:inherit;color:var(--tx);background:transparent;width:100%;padding:1px 0}
+.sub-rich-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.sub-rich-expand{padding:8px 0 2px;display:none}
+.sub-rich-expand.open{display:block}
+.sub-exp-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.sub-exp-lbl{color:var(--tx3);width:62px;flex-shrink:0;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+.sub-rich-actions{display:flex;gap:2px;flex-shrink:0}
 
 /* schedule gcal note */
 .sched-gcal-note{font-size:11.5px;color:var(--tx3);display:flex;align-items:center;gap:6px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--g50)}
@@ -739,7 +755,7 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
       <textarea class="ftxt" id="sp-notes" style="margin-top:0;font-size:12.5px" placeholder="Add notes…" onchange="spNotesChange()"></textarea>
     </div>
     <div class="sp-field">
-      <div class="sp-lbl">Subtasks <button class="btn btn-gh btn-xs" style="margin-left:8px" onclick="addSubtask()"><i class="fa-solid fa-plus"></i></button></div>
+      <div class="sp-lbl">Subtasks <button class="btn btn-gh btn-xs" style="margin-left:8px" onclick="spShowAddForm()"><i class="fa-solid fa-plus"></i></button></div>
       <div id="sp-subtasks" style="margin-top:6px"></div>
     </div>
     <div class="div"></div>
@@ -1919,10 +1935,7 @@ function openSp(id){
   document.getElementById('sp-assignee').innerHTML=`<div style="display:flex;align-items:center;gap:7px">${avHtml(t.assignee)} ${ANAME[t.assignee]||t.assignee}</div>`;
   document.getElementById('sp-tags').textContent=(t.tags||[]).join(', ')||'—';
   document.getElementById('sp-notes').value=t.notes||'';
-  document.getElementById('sp-subtasks').innerHTML=(t.subtasks||[]).map(s=>`<div class="sub-item">
-    <div class="sub-chk" onclick="spTogSub('${t.id}','${s.id}')" style="${s.done?'background:var(--t600);border-color:var(--t600)':'border-color:var(--g200)'}">${s.done?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div>
-    <span style="${s.done?'text-decoration:line-through;color:var(--tx3)':''}">${s.text}</span>
-  </div>`).join('')||'<div style="font-size:12px;color:var(--tx3)">No subtasks yet</div>';
+  renderSpSubtasks(t.id);
   document.getElementById('sp-custom-fields').innerHTML=customCols.filter(c=>(t.custom||{})[c.id]).map(c=>{const val=t.custom[c.id];return`<div class="sp-field"><div class="sp-lbl">${c.name}</div><div class="sp-val">${c.type==='url'?`<a href="${val}" target="_blank" style="color:var(--b600)">${val}</a>`:val}</div></div>`;}).join('');
 }
 function closeSp(){activeSp=null;document.getElementById('side-panel').classList.add('hidden');}
@@ -1934,20 +1947,143 @@ function spNotesChange(){
 }
 function editFromSp(){if(activeSp)openEditModal(activeSp);}
 function deleteFromSp(){if(activeSp)deleteTask(activeSp);}
-function addSubtask(){
-  const t=tasks.find(t=>String(t.id)===String(activeSp)); if(!t)return;
-  const txt=prompt('New subtask:'); if(!txt?.trim())return;
-  if(!t.subtasks) t.subtasks=[];
-  t.subtasks.push({id:'s'+Date.now(),text:txt.trim(),done:false});
-  fbSet('tasks',activeSp,t);
-  openSp(activeSp);
+function renderSpSubtasks(tid){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const subs=t.subtasks||[];
+  const rows=subs.map(s=>{
+    const status=s.status||(s.done?'done':'todo');
+    const isDone=status==='done';
+    const isIP=status==='in-progress';
+    const chkCls=isDone?'done':isIP?'inprog':'';
+    const statusLabel={todo:'To Do','in-progress':'In Progress',done:'Done'}[status]||'To Do';
+    const statusBg={todo:'var(--g50)','in-progress':'var(--a50)',done:'var(--t50)'}[status]||'var(--g50)';
+    const statusCol={todo:'var(--tx2)','in-progress':'var(--a600)',done:'var(--t600)'}[status]||'var(--tx2)';
+    const pr=prioTypes.find(p=>p.id===s.prio);
+    const safeText=(s.text||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    return `<div class="sub-rich-row" id="sub-rich-${s.id}">
+      <div class="sub-rich-chk ${chkCls}" onclick="spTogSub('${tid}','${s.id}')">
+        ${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':isIP?'<i class="fa-solid fa-spinner" style="font-size:7px;color:var(--a600)"></i>':''}
+      </div>
+      <div class="sub-rich-body">
+        <span class="sub-rich-title ${isDone?'done':''}" id="sub-span-${s.id}" onclick="spEditSubTitle('${tid}','${s.id}')">${s.text||''}</span>
+        <input class="sub-rich-title-inp" id="sub-title-inp-${s.id}" value="${safeText}"
+               onblur="spSaveSubTitle('${tid}','${s.id}',this.value)"
+               onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){spCancelSubTitle('${s.id}');}">
+        <div class="sub-rich-chips">
+          <span class="badge" style="background:${statusBg};color:${statusCol}">${statusLabel}</span>
+          ${pr?`<span class="badge" style="background:${pr.color}22;color:${pr.color}">${pr.label}</span>`:''}
+          ${s.due?`<span class="badge" style="background:var(--b50);color:var(--b600)"><i class="fa-solid fa-calendar-day" style="font-size:9px"></i> ${fmtDate(s.due)}</span>`:''}
+          ${s.assignee&&s.assignee!=='me'?`<span class="badge" style="background:var(--p50);color:var(--p600)">${ANAME[s.assignee]||s.assignee}</span>`:''}
+        </div>
+        <div class="sub-rich-expand" id="sub-exp-${s.id}">
+          <div class="sub-exp-row"><span class="sub-exp-lbl">Status</span>
+            <select class="fsel" style="font-size:11.5px;padding:2px 8px" onchange="spSaveSubField('${tid}','${s.id}','status',this.value)">
+              <option value="todo" ${status==='todo'?'selected':''}>To Do</option>
+              <option value="in-progress" ${status==='in-progress'?'selected':''}>In Progress</option>
+              <option value="done" ${status==='done'?'selected':''}>Done</option>
+            </select>
+          </div>
+          <div class="sub-exp-row"><span class="sub-exp-lbl">Priority</span>
+            <select class="fsel" style="font-size:11.5px;padding:2px 8px" onchange="spSaveSubField('${tid}','${s.id}','prio',this.value)">
+              <option value="">— none —</option>
+              ${prioTypes.map(p=>`<option value="${p.id}" ${s.prio===p.id?'selected':''}>${p.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="sub-exp-row"><span class="sub-exp-lbl">Due date</span>
+            <input type="date" class="finp" style="font-size:11.5px;padding:2px 8px" value="${s.due||''}"
+                   onchange="spSaveSubField('${tid}','${s.id}','due',this.value)">
+          </div>
+          <div class="sub-exp-row"><span class="sub-exp-lbl">Assignee</span>
+            <select class="fsel" style="font-size:11.5px;padding:2px 8px" onchange="spSaveSubField('${tid}','${s.id}','assignee',this.value)">
+              ${Object.entries(ANAME).map(([v,l])=>`<option value="${v}" ${(s.assignee||'me')===v?'selected':''}>${l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="sub-exp-row"><span class="sub-exp-lbl">Notes</span>
+            <input class="finp" style="font-size:11.5px;padding:2px 8px;flex:1" value="${(s.notes||'').replace(/"/g,'&quot;')}"
+                   placeholder="Add notes…" onchange="spSaveSubField('${tid}','${s.id}','notes',this.value)">
+          </div>
+        </div>
+      </div>
+      <div class="sub-rich-actions">
+        <button class="ibtn" onclick="spExpandSub('${s.id}')" title="Edit fields"><i class="fa-solid fa-sliders" style="font-size:10px" id="sub-exp-icon-${s.id}"></i></button>
+        <button class="ibtn" onclick="spDeleteSub('${tid}','${s.id}')" title="Delete subtask"><i class="fa-solid fa-trash" style="font-size:10px"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+  const addForm=`<div id="sub-add-row" style="display:none;padding:8px 0 4px;border-top:1px solid var(--bd);margin-top:4px">
+    <input class="finp" id="sub-add-inp" placeholder="Subtask title…" style="margin-bottom:6px"
+           onkeydown="if(event.key==='Enter')spSubmitNewSub('${tid}');if(event.key==='Escape')spHideAddForm()">
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-gh btn-xs" onclick="spHideAddForm()">Cancel</button>
+      <button class="btn btn-pr btn-xs" onclick="spSubmitNewSub('${tid}')"><i class="fa-solid fa-check"></i> Add</button>
+    </div>
+  </div>`;
+  const el=document.getElementById('sp-subtasks');
+  if(el) el.innerHTML=(rows||'<div style="font-size:12px;color:var(--tx3);padding:4px 0">No subtasks yet — click + to add one</div>')+addForm;
 }
+function spShowAddForm(){
+  const f=document.getElementById('sub-add-row'); if(!f)return;
+  f.style.display='block';
+  setTimeout(()=>{const i=document.getElementById('sub-add-inp');if(i)i.focus();},30);
+}
+function spHideAddForm(){ const f=document.getElementById('sub-add-row'); if(f)f.style.display='none'; }
+function spSubmitNewSub(tid){
+  const inp=document.getElementById('sub-add-inp'); if(!inp)return;
+  const txt=inp.value.trim(); if(!txt)return;
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  if(!t.subtasks) t.subtasks=[];
+  t.subtasks.push({id:'s'+Date.now(),text:txt,status:'todo',prio:'',due:'',dueTime:'',assignee:'me',notes:''});
+  fbSet('tasks',tid,t);
+  spHideAddForm();
+  renderSpSubtasks(tid);
+}
+function spExpandSub(sid){
+  const exp=document.getElementById('sub-exp-'+sid); if(!exp)return;
+  exp.classList.toggle('open');
+}
+function spSaveSubField(tid,sid,field,val){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  s[field]=val;
+  if(field==='status') s.done=val==='done';
+  fbSet('tasks',tid,t);
+  renderSpSubtasks(tid);
+}
+function spEditSubTitle(tid,sid){
+  const span=document.getElementById('sub-span-'+sid);
+  const inp=document.getElementById('sub-title-inp-'+sid);
+  if(span) span.style.display='none';
+  if(inp){inp.style.display='block';inp.focus();inp.select();}
+}
+function spCancelSubTitle(sid){
+  const span=document.getElementById('sub-span-'+sid);
+  const inp=document.getElementById('sub-title-inp-'+sid);
+  if(span) span.style.display='';
+  if(inp) inp.style.display='none';
+}
+function spSaveSubTitle(tid,sid,val){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
+  if(val.trim()) s.text=val.trim();
+  fbSet('tasks',tid,t);
+  renderSpSubtasks(tid);
+}
+function spDeleteSub(tid,sid){
+  if(!confirm('Delete this subtask?')) return;
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  t.subtasks=(t.subtasks||[]).filter(s=>String(s.id)!==String(sid));
+  fbSet('tasks',tid,t);
+  renderSpSubtasks(tid);
+}
+function addSubtask(){ spShowAddForm(); }
 function spTogSub(tid,sid){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
   const s=(t.subtasks||[]).find(s=>String(s.id)===String(sid)); if(!s)return;
-  s.done=!s.done;
+  const cur=s.status||(s.done?'done':'todo');
+  s.status=cur==='todo'?'in-progress':cur==='in-progress'?'done':'todo';
+  s.done=s.status==='done';
   fbSet('tasks',tid,t);
-  openSp(tid);
+  renderSpSubtasks(tid);
 }
 
 /* ════════════════════════════════════════════════
