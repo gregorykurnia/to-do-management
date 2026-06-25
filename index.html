@@ -87,8 +87,10 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 .card-ttl i{color:var(--p600)}
 
 /* Task Table */
-.task-table{width:100%;border-collapse:collapse}
-.task-table th{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);padding:8px 12px;text-align:left;border-bottom:1px solid var(--bd);background:var(--g50);position:sticky;top:0}
+.task-table{width:max-content;min-width:100%;border-collapse:collapse}
+.task-table th{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--tx3);padding:8px 12px;text-align:left;border-bottom:1px solid var(--bd);background:var(--g50);position:sticky;top:0;position:relative}
+.col-rz{position:absolute;right:0;top:0;bottom:0;width:5px;cursor:col-resize;z-index:2;border-radius:0 var(--r-sm) var(--r-sm) 0}
+.col-rz:hover{background:var(--p400);opacity:.45}
 .task-table td{padding:9px 12px;border-bottom:1px solid var(--bd);font-size:12.5px;vertical-align:middle}
 .task-table tr:last-child td{border-bottom:none}
 .task-table tr:hover td{background:var(--g50)}
@@ -1106,7 +1108,7 @@ async function fbDelete(collection, id){
 async function fbSaveSettings(){
   setSyncDot('saving');
   try {
-    await db.collection('settings').doc('config').set({prioTypes, taskTypes, tags, customCols, colDefs});
+    await db.collection('settings').doc('config').set({prioTypes, taskTypes, tags, customCols, colDefs, colWidths});
     setSyncDot('synced');
   } catch(e){
     console.error('fbSaveSettings error', e);
@@ -1125,6 +1127,7 @@ async function fbLoadSettings(){
       if(d.tags?.length) tags = d.tags;
       if(Array.isArray(d.customCols)) customCols = d.customCols;
       if(Array.isArray(d.colDefs)&&d.colDefs.length) colDefs = d.colDefs;
+      if(d.colWidths) colWidths=d.colWidths;
     }
   } catch(e){
     console.error('fbLoadSettings error', e);
@@ -1478,7 +1481,7 @@ function toggleCellDd(id){
   el.style.top=(rect.bottom+4)+'px';
   el.style.left=rect.left+'px';
   // Clamp to viewport after browser lays it out
-  requestAnimationFrame(()=>{ const w=el.offsetWidth||180; el.style.left=Math.min(rect.left, window.innerWidth-w-8)+'px'; });
+  requestAnimationFrame(()=>{ const w=el.offsetWidth||180; el.style.left=Math.min(rect.left, window.innerWidth-w-8)+'px'; const inp=el.querySelector('textarea,input:not([type=button]):not([type=checkbox])');if(inp){inp.focus();try{inp.select();}catch(_){}} });
   el.style.zIndex='9999';
   el.classList.add('open');
   _activeCellDd=el;
@@ -1496,6 +1499,33 @@ function closeCellDd(){
 function cellSetPrio(tid,pid){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.prio=pid; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetType(tid,typ){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.type=typ; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetStatus(tid,st){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.status=st; fbSet('tasks',tid,t); closeCellDd(); if(String(activeSp)===String(tid))openSp(tid); }
+function cellSetCustom(tid,colId,val){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; if(!t.custom)t.custom={}; t.custom[colId]=String(val); fbSet('tasks',tid,t); closeCellDd(); }
+
+let colWidths={};
+let _rzState=null;
+function startColResize(e,colId,th){
+  _rzState={colId,th,startX:e.clientX,startW:th.offsetWidth};
+  document.addEventListener('mousemove',onColResize);
+  document.addEventListener('mouseup',stopColResize);
+  document.body.style.cursor='col-resize';
+  document.body.style.userSelect='none';
+}
+function onColResize(e){
+  if(!_rzState)return;
+  const w=Math.max(60,_rzState.startW+(e.clientX-_rzState.startX));
+  _rzState.th.style.width=w+'px';
+  _rzState.th.style.minWidth=w+'px';
+}
+function stopColResize(){
+  if(!_rzState)return;
+  colWidths[_rzState.colId]=_rzState.th.offsetWidth;
+  document.removeEventListener('mousemove',onColResize);
+  document.removeEventListener('mouseup',stopColResize);
+  document.body.style.cursor='';
+  document.body.style.userSelect='';
+  _rzState=null;
+  fbSaveSettings();
+}
 function cellToggleTag(tid,tag){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; if(!t.tags)t.tags=[]; const i=t.tags.indexOf(tag); if(i>-1)t.tags.splice(i,1); else t.tags.push(tag); fbSet('tasks',tid,t); /* keep dropdown open for multi-select — re-render cell only */ const el=document.getElementById('cdd-tg-'+tid); if(el){ const cur=t.tags||[];const tagList=tags.map(tg=>`<div class="cell-dd-item${cur.includes(tg)?' active':''}" onclick="event.stopPropagation();cellToggleTag('${tid}','${tg}')"><i class="fa-solid fa-${cur.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join('');el.innerHTML=tagList; } }
 
 function cellDueHtml(t){
@@ -1583,10 +1613,44 @@ function taskRow(t, cols, context, q=''){
   const titleHl=q?hlText(t.title,q):t.title;
   const vis=id=>!colDefs.find(c=>c.id===id)?.hidden;
   const customCells=(cols||customCols).filter(c=>!c.hidden).map(col=>{
-    const val=(t.custom||{})[col.id]||'';
-    if(col.type==='url'&&val) return`<td><a href="${val}" target="_blank" onclick="event.stopPropagation()" style="color:var(--b600);font-size:11px">${val.replace(/^https?:\/\//,'').substring(0,24)}…</a></td>`;
-    if(col.type==='checkbox') return`<td><input type="checkbox" ${val?'checked':''} onclick="event.stopPropagation()" style="accent-color:var(--p600)"></td>`;
-    return`<td style="font-size:12px;color:var(--tx2)">${val||'<span style="color:var(--tx3)">—</span>'}</td>`;
+    const raw=(t.custom||{})[col.id];
+    const val=raw!=null?String(raw):'';
+    const ddId=`cdd-c-${t.id}-${col.id}`;
+    if(col.type==='checkbox'){
+      const chk=val==='true'||val==='1';
+      return`<td onclick="event.stopPropagation()"><input type="checkbox" ${chk?'checked':''} onchange="cellSetCustom('${t.id}','${col.id}',this.checked?'true':'')" style="accent-color:var(--p600)"></td>`;
+    }
+    const safeVal=val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const preview=val.length>32?val.substring(0,32)+'…':val;
+    const dispHtml=val?`<span style="font-size:12px;color:var(--tx2);white-space:pre-wrap;word-break:break-word">${preview}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+    if(col.type==='url'){
+      const link=val?`<a href="${safeVal}" target="_blank" onclick="event.stopPropagation()" style="color:var(--b600);font-size:11px">${val.replace(/^https?:\/\//,'').substring(0,22)}…</a>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+      return`<td onclick="event.stopPropagation()" class="cell-editable"><div class="cell-edit-wrap" onclick="toggleCellDd('${ddId}')">
+        ${link}
+        <div class="cell-dd" id="${ddId}" style="min-width:240px;padding:8px" onclick="event.stopPropagation()">
+          <input class="finp" id="${ddId}-inp" type="url" placeholder="https://…" value="${safeVal}" style="margin-bottom:6px;font-size:12px"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();cellSetCustom('${t.id}','${col.id}',this.value);}if(event.key==='Escape')closeCellDd()">
+          <div style="display:flex;gap:6px;justify-content:flex-end">
+            <button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button>
+            <button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();cellSetCustom('${t.id}','${col.id}',document.getElementById('${ddId}-inp').value)">Save</button>
+          </div>
+        </div>
+      </div></td>`;
+    }
+    const isNum=col.type==='number';
+    const inputEl=isNum
+      ?`<input class="finp" id="${ddId}-inp" type="number" value="${safeVal}" style="margin-bottom:6px;font-size:12px" onkeydown="if(event.key==='Enter'){event.preventDefault();cellSetCustom('${t.id}','${col.id}',this.value);}if(event.key==='Escape')closeCellDd()">`
+      :`<textarea class="finp" id="${ddId}-inp" rows="3" style="resize:vertical;font-size:12px;margin-bottom:6px;min-height:60px" onkeydown="if(event.key==='Escape')closeCellDd()">${safeVal}</textarea>`;
+    return`<td onclick="event.stopPropagation()" class="cell-editable"><div class="cell-edit-wrap" onclick="toggleCellDd('${ddId}')">
+      ${dispHtml}
+      <div class="cell-dd" id="${ddId}" style="min-width:220px;padding:8px" onclick="event.stopPropagation()">
+        ${inputEl}
+        <div style="display:flex;gap:6px;justify-content:flex-end">
+          <button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button>
+          <button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();cellSetCustom('${t.id}','${col.id}',document.getElementById('${ddId}-inp').value)">Save</button>
+        </div>
+      </div>
+    </div></td>`;
   }).join('');
   return `<tr class="${t.status==='done'?'done-row':''}" onclick="openSp('${t.id}')" style="cursor:pointer">
     <td onclick="event.stopPropagation();toggleTask('${t.id}')"><div class="chk ${t.status==='done'?'done':''}" style="width:15px;height:15px">${t.status==='done'?'<i class="fa-solid fa-check" style="font-size:8px;color:#fff"></i>':''}</div></td>
@@ -1641,10 +1705,16 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
 }
 
 function tableHeaders(context){
-  return colDefs.filter(c=>!c.fixed&&!c.hidden).map(c=>`<th class="${thClsStr(c.id,context)}" onclick="onThClick('${c.id}','${context}')" style="cursor:pointer;user-select:none">${c.label} <i class="fa-solid fa-sort" style="font-size:8px;opacity:.3"></i></th>`).join('');
+  return colDefs.filter(c=>!c.fixed&&!c.hidden).map(c=>{
+    const ws=colWidths[c.id]?`width:${colWidths[c.id]}px;min-width:${colWidths[c.id]}px;`:'';
+    return`<th class="${thClsStr(c.id,context)}" onclick="onThClick('${c.id}','${context}')" style="${ws}cursor:pointer;user-select:none;position:relative">${c.label} <i class="fa-solid fa-sort" style="font-size:8px;opacity:.3"></i><div class="col-rz" onmousedown="event.stopPropagation();event.preventDefault();startColResize(event,'${c.id}',this.parentElement)"></div></th>`;
+  }).join('');
 }
 function customColHeaders(context){
-  return customCols.filter(c=>!c.hidden).map((c,i)=>`<th style="position:relative"><span>${c.name}</span><span onclick="event.stopPropagation();removeColInline(customCols.indexOf(c))" style="margin-left:6px;cursor:pointer;color:var(--tx3);font-size:9px;opacity:.5" title="Remove column">✕</span></th>`).join('')
+  return customCols.filter(c=>!c.hidden).map(c=>{
+    const ws=colWidths[c.id]?`width:${colWidths[c.id]}px;min-width:${colWidths[c.id]}px;`:'';
+    return`<th style="${ws}position:relative"><span>${c.name}</span><span onclick="event.stopPropagation();removeColInline(customCols.indexOf(c))" style="margin-left:6px;cursor:pointer;color:var(--tx3);font-size:9px;opacity:.5" title="Remove column">✕</span><div class="col-rz" onmousedown="event.stopPropagation();event.preventDefault();startColResize(event,'${c.id}',this.parentElement)"></div></th>`;
+  }).join('')
     +`<th onclick="openColManager()" style="cursor:pointer;color:var(--p600);white-space:nowrap;font-size:10px" title="Manage columns"><i class="fa-solid fa-sliders"></i> Cols</th>`;
 }
 function removeColInline(i){ if(!confirm(`Remove column "${customCols[i].name}"?`)) return; customCols.splice(i,1); fbSaveSettings(); renderTasksView(); renderTeam(); }
