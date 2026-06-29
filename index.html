@@ -999,6 +999,7 @@ let colDefs = [
   {id:'due',    label:'Due',    hidden:false},
   {id:'assignee',label:'Who',   hidden:false},
   {id:'tags',   label:'Tags',   hidden:false},
+  {id:'notes',  label:'Notes',  hidden:false},
 ];
 
 let sortState = {
@@ -1131,6 +1132,7 @@ async function fbLoadSettings(){
       if(d.tags?.length) tags = d.tags;
       if(Array.isArray(d.customCols)) customCols = d.customCols;
       if(Array.isArray(d.colDefs)&&d.colDefs.length) colDefs = d.colDefs;
+      if(!colDefs.find(c=>c.id==='notes')) colDefs.splice(colDefs.findIndex(c=>c.id==='tags')+1,0,{id:'notes',label:'Notes',hidden:false});
       if(d.colWidths) colWidths=d.colWidths;
     }
   } catch(e){
@@ -1474,6 +1476,19 @@ function cellTagsHtml(t){
   const display=cur.length?cur.slice(0,2).map(tg=>`<span class="badge btag">${tg}</span>`).join(' ')+(cur.length>2?`<span class="badge btag">+${cur.length-2}</span>`:''): `<span style="color:var(--tx3);font-size:11px">—</span>`;
   return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('cdd-tg-${t.id}')">${display}<div class="cell-dd" id="cdd-tg-${t.id}" style="min-width:160px">${tagList}</div></div>`;
 }
+function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function cellNotesHtml(t){
+  const val=t.notes||'';
+  const ddId=`cdd-n-${t.id}`;
+  const preview=val?`<span style="font-size:11px;color:var(--tx2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${_escHtml(val)}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+  return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${ddId}')">${preview}<div class="cell-dd" id="${ddId}" style="min-width:270px;padding:8px"><div style="font-size:10.5px;font-weight:600;color:var(--tx3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Notes</div><textarea id="${ddId}-txt" class="ftxt" style="font-size:12px;min-height:90px;resize:vertical;margin-bottom:6px" onclick="event.stopPropagation()" onkeydown="if(event.key==='Escape'){event.stopPropagation();closeCellDd();}">${_escHtml(val)}</textarea><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button><button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();cellSetNotes('${t.id}',document.getElementById('${ddId}-txt').value)">Save</button></div></div></div>`;
+}
+function cellSetNotes(tid,val){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  t.notes=val; fbSet('tasks',tid,t); closeCellDd();
+  const spEl=document.getElementById('sp-notes');
+  if(spEl&&activeSp===String(tid)) spEl.value=val;
+}
 
 function toggleCellDd(id){
   const el=document.getElementById(id); if(!el)return;
@@ -1666,6 +1681,7 @@ function taskRow(t, cols, context, q=''){
     ${vis('due')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellDueHtml(t)}</td>`:''}
     ${vis('assignee')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellAssigneeHtml(t)}</td>`:''}
     ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTagsHtml(t)}</td>`:''}
+    ${vis('notes')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellNotesHtml(t)}</td>`:''}
     ${customCells}
     <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">${context==='team'?`<button class="ibtn" onclick="claimTask('${t.id}')" title="Move to My Tasks"><i class="fa-solid fa-user-check" style="font-size:10px"></i></button>`:''}<button class="ibtn" onclick="openEditModal('${t.id}')"><i class="fa-solid fa-pen"></i></button><button class="ibtn" onclick="deleteTask('${t.id}')"><i class="fa-solid fa-trash"></i></button></div></td>
   </tr>${subTaskRows(t.id,t.subtasks||[],cols,context,q,0)}${_pendingSub?.tid===String(t.id)&&!_pendingSub?.parentSid?pendingSubRow(0):''}`;
@@ -1702,6 +1718,11 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
   const curTags=s.tags||[];
   const tagsDisp=curTags.length?curTags.slice(0,2).map(tg=>`<span class="badge btag">${tg}</span>`).join(' ')+(curTags.length>2?`<span class="badge btag">+${curTags.length-2}</span>`:''): `<span style="color:var(--tx3);font-size:11px">—</span>`;
   const tagsCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${tagsDd}')">${tagsDisp}<div class="cell-dd" id="${tagsDd}" style="min-width:160px">${tags.map(tg=>`<div class="cell-dd-item${curTags.includes(tg)?' active':''}" onclick="event.stopPropagation();spSubToggleTag('${tid}','${sid}','${tg}')"><i class="fa-solid fa-${curTags.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join('')}</div></div>`;
+  // Notes cell
+  const subNotesDd=`cdd-sn-${sid}`;
+  const subNotesVal=s.notes||'';
+  const subNotesPreview=subNotesVal?`<span style="font-size:11px;color:var(--tx2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle">${_escHtml(subNotesVal)}</span>`:`<span style="color:var(--tx3);font-size:11px">—</span>`;
+  const subNotesCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${subNotesDd}')">${subNotesPreview}<div class="cell-dd" id="${subNotesDd}" style="min-width:270px;padding:8px"><div style="font-size:10.5px;font-weight:600;color:var(--tx3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Notes</div><textarea id="${subNotesDd}-txt" class="ftxt" style="font-size:12px;min-height:90px;resize:vertical;margin-bottom:6px" onclick="event.stopPropagation()" onkeydown="if(event.key==='Escape'){event.stopPropagation();closeCellDd();}">${_escHtml(subNotesVal)}</textarea><div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn btn-xs btn-gh" onmousedown="event.preventDefault()" onclick="event.stopPropagation();closeCellDd()">Cancel</button><button class="btn btn-xs btn-pr" onmousedown="event.preventDefault()" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','notes',document.getElementById('${subNotesDd}-txt').value)">Save</button></div></div></div>`;
   const customCells=(cols||customCols).filter(c=>!c.hidden).map(col=>{
     const raw=(s.custom||{})[col.id];
     const val=raw!=null?String(raw):'';
@@ -1751,6 +1772,7 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
     ${vis('due')?`<td onclick="event.stopPropagation()" class="cell-editable">${dueCell}</td>`:''}
     ${vis('assignee')?`<td onclick="event.stopPropagation()" class="cell-editable">${assigneeCell}</td>`:''}
     ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${tagsCell}</td>`:''}
+    ${vis('notes')?`<td onclick="event.stopPropagation()" class="cell-editable">${subNotesCell}</td>`:''}
     ${customCells}
     <td onclick="event.stopPropagation()"><button class="ibtn" onclick="spDeleteSub('${tid}','${sid}')" title="Delete subtask"><i class="fa-solid fa-trash" style="font-size:10px"></i></button></td>
   </tr>`;
