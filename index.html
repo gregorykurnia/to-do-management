@@ -1659,7 +1659,7 @@ function taskRow(t, cols, context, q=''){
   }).join('');
   return `<tr class="${t.status==='done'?'done-row':''}" onclick="openSp('${t.id}')" style="cursor:pointer">
     <td onclick="event.stopPropagation();toggleTask('${t.id}')"><div class="chk ${t.status==='done'?'done':''}" style="width:15px;height:15px">${t.status==='done'?'<i class="fa-solid fa-check" style="font-size:8px;color:#fff"></i>':''}</div></td>
-    ${vis('title')?`<td><span class="tt">${titleHl}</span>${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}<button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${t.id}',null,0)" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></td>`:''}
+    ${vis('title')?`<td onclick="event.stopPropagation()"><span class="tt" id="tt-span-${t.id}" onclick="event.stopPropagation();cellEditTaskTitle('${t.id}')" style="cursor:text">${titleHl}</span><input id="tt-inp-${t.id}" class="finp" style="display:none;font-size:13px;padding:2px 5px;width:180px" value="${(t.title||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter'){event.preventDefault();cellSaveTaskTitle('${t.id}',this.value);}if(event.key==='Escape'){event.stopPropagation();cellCancelTaskTitle('${t.id}');}" onblur="cellSaveTaskTitle('${t.id}',this.value)">${subs.length?`<span style="font-size:10px;color:var(--tx3);margin-left:6px">${sdone}/${subs.length} ✓</span>`:''}<button class="ibtn sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${t.id}',null,0)" title="Add subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellPrioHtml(t)}</td>`:''}
     ${vis('type')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellTypeHtml(t)}</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${cellStatusHtml(t)}</td>`:''}
@@ -1736,7 +1736,7 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
   }).join('');
   return `<tr class="subtask-row${isDone?' done-row':''}" onclick="openSp('${tid}')">
     <td onclick="event.stopPropagation();spTogSubStatus('${tid}','${sid}')"><div class="chk" style="width:13px;height:13px;${chkStyle}">${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div></td>
-    ${vis('title')?`<td><div class="subtask-indent" style="padding-left:${22+depth*18}px"><span class="subtask-tree">└</span><span style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}">${q?hlText(s.text||'',q):s.text||''}</span><button class="sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${tid}','${sid}',${depth+1})" title="Add sub-subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div></td>`:''}
+    ${vis('title')?`<td onclick="event.stopPropagation()"><div class="subtask-indent" style="padding-left:${22+depth*18}px"><span class="subtask-tree">└</span><span id="sub-tbl-span-${sid}" style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}cursor:text" onclick="event.stopPropagation();cellEditSubTblTitle('${tid}','${sid}')">${q?hlText(s.text||'',q):s.text||''}</span><input id="sub-tbl-inp-${sid}" class="finp" style="display:none;font-size:12.5px;padding:2px 5px;width:160px" value="${(s.text||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter'){event.preventDefault();cellSaveSubTblTitle('${tid}','${sid}',this.value);}if(event.key==='Escape'){event.stopPropagation();cellCancelSubTblTitle('${sid}');}" onblur="cellSaveSubTblTitle('${tid}','${sid}',this.value)"><button class="sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${tid}','${sid}',${depth+1})" title="Add sub-subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${prioCell}</td>`:''}
     ${vis('type')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${statusCell}</td>`:''}
@@ -2387,6 +2387,41 @@ function spSaveSubTitle(tid,sid,val){
   const s=findSubInTree(t.subtasks,sid); if(!s)return;
   if(val.trim()) s.text=val.trim();
   fbSet('tasks',tid,t); renderSpSubtasks(tid); renderTasksView(); renderTeam();
+}
+function cellEditTaskTitle(tid){
+  const span=document.getElementById('tt-span-'+tid);
+  const inp=document.getElementById('tt-inp-'+tid);
+  if(span) span.style.display='none';
+  if(inp){inp.style.display='inline-block';inp.focus();inp.select();}
+}
+function cellCancelTaskTitle(tid){
+  const span=document.getElementById('tt-span-'+tid);
+  const inp=document.getElementById('tt-inp-'+tid);
+  if(span) span.style.display='';
+  if(inp) inp.style.display='none';
+}
+function cellSaveTaskTitle(tid,val){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  if(!val.trim()) return cellCancelTaskTitle(tid);
+  t.title=val.trim(); fbSet('tasks',tid,t); renderTasksView(); renderTeam();
+}
+function cellEditSubTblTitle(tid,sid){
+  const span=document.getElementById('sub-tbl-span-'+sid);
+  const inp=document.getElementById('sub-tbl-inp-'+sid);
+  if(span) span.style.display='none';
+  if(inp){inp.style.display='inline-block';inp.focus();inp.select();}
+}
+function cellCancelSubTblTitle(sid){
+  const span=document.getElementById('sub-tbl-span-'+sid);
+  const inp=document.getElementById('sub-tbl-inp-'+sid);
+  if(span) span.style.display='';
+  if(inp) inp.style.display='none';
+}
+function cellSaveSubTblTitle(tid,sid,val){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
+  if(!val.trim()) return cellCancelSubTblTitle(sid);
+  s.text=val.trim(); fbSet('tasks',tid,t); renderTasksView(); renderTeam(); if(activeSp===String(tid))renderSpSubtasks(tid);
 }
 function spDeleteSub(tid,sid){
   if(!confirm('Delete this subtask?')) return;
