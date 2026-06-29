@@ -182,6 +182,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 .dnav{display:flex;align-items:center;gap:10px;margin-bottom:18px}
 .dnav-btn{width:30px;height:30px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tx2);font-size:12px;transition:all .12s}
 .dnav-btn:hover{background:var(--g50)}
+.my-tab-btn{padding:8px 16px;border:none;border-bottom:2px solid transparent;background:transparent;font-size:13px;font-weight:500;color:var(--tx2);cursor:pointer;white-space:nowrap;transition:all .12s;font-family:inherit;flex-shrink:0}
+.my-tab-btn:hover{color:var(--tx);background:var(--hover)}
+.my-tab-btn.on{color:var(--p600);border-bottom-color:var(--p600)}
 .dnav-lbl{font-size:18px;font-weight:600}
 .dnav-sub{font-size:12px;color:var(--tx3);margin-left:3px}
 
@@ -481,6 +484,8 @@ mark.hl{background:rgba(239,159,39,.28);border-radius:2px;padding:0 1px;color:in
       </div>
 
       <div class="stats" id="task-stats"></div>
+
+      <div id="my-tasks-tabs" style="display:flex;border-bottom:1px solid var(--bd);overflow-x:auto;margin:0 -1px"></div>
 
       <div class="qbar">
         <i class="fa-solid fa-plus" style="color:var(--tx3);font-size:13px"></i>
@@ -988,6 +993,7 @@ let gcalToken = null, gcalTokenExpiry = 0, gcalClientId = localStorage.getItem('
 let gcalEventsCache = {}, calMonthOff = 0, tokenClient = null;
 { const _t=localStorage.getItem('gcal_access_token'), _e=parseInt(localStorage.getItem('gcal_token_expiry')||'0'); if(_t&&Date.now()<_e-60000){gcalToken=_t;gcalTokenExpiry=_e;gcalConnected=true;} }
 let showArch = false, showTeamArch = false;
+let myTasksTab = null; // null = All, or a taskType id
 
 // Default column definitions (label editable, visibility toggleable)
 let colDefs = [
@@ -1818,10 +1824,22 @@ function submitSubInline(e,tid){
 /* ════════════════════════════════════════════════
    RENDER: MY TASKS
 ════════════════════════════════════════════════ */
+function renderMyTasksTabs(){
+  const el=document.getElementById('my-tasks-tabs'); if(!el)return;
+  const tabs=[{id:null,label:'All'},...taskTypes.map(t=>({id:t.id,label:t.label}))];
+  el.innerHTML=tabs.map(tb=>`<button class="my-tab-btn${myTasksTab===tb.id?' on':''}" onclick="setMyTasksTab(${tb.id===null?'null':`'${tb.id}'`})">${tb.label}</button>`).join('');
+}
+function setMyTasksTab(typeId){
+  myTasksTab=typeId;
+  renderTasksView();
+}
+
 function renderTasksView(){
   const q=(document.getElementById('task-search-inp')||{}).value?.toLowerCase()||'';
   const curDayStr=ds(dayForOff(dayOff));
-  const myTasks=tasks.filter(t=>!t.assignee||t.assignee==='me');
+  renderMyTasksTabs();
+  const allMyTasks=tasks.filter(t=>!t.assignee||t.assignee==='me');
+  const myTasks=myTasksTab?allMyTasks.filter(t=>t.type===myTasksTab):allMyTasks;
   let filtered=applyFpFilter(myTasks,'fp-tasks','task-search-inp');
   filtered=filtered.filter(t=>{
     if(dayOff===0) return true; // today: show all tasks regardless of due date
@@ -1833,11 +1851,11 @@ function renderTasksView(){
   const done_=filtered.filter(t=>t.status==='done');
   const allOpen=myTasks.filter(t=>t.status!=='done');
   document.getElementById('task-stats').innerHTML=`
-    <div class="stat"><div class="stat-lbl">Not done</div><div class="stat-val">${allOpen.length}</div><div class="stat-sub">my open tasks</div></div>
+    <div class="stat"><div class="stat-lbl">Not done</div><div class="stat-val">${allOpen.length}</div><div class="stat-sub">${myTasksTab?'in this tab':'my open tasks'}</div></div>
     <div class="stat"><div class="stat-lbl">In Progress</div><div class="stat-val">${myTasks.filter(t=>t.status==='in-progress').length}</div><div class="stat-sub">active</div></div>
     <div class="stat"><div class="stat-lbl">Carried over</div><div class="stat-val">${allOpen.filter(t=>t.carryover).length}</div><div class="stat-sub">from prev day</div></div>
     <div class="stat"><div class="stat-lbl" style="color:var(--r600)">Overdue</div><div class="stat-val" style="color:var(--r600)">${allOpen.filter(t=>isOvd(t.due)).length}</div><div class="stat-sub">need attention</div></div>`;
-  document.getElementById('b-tasks').textContent=allOpen.length;
+  document.getElementById('b-tasks').textContent=allMyTasks.filter(t=>t.status!=='done').length;
   const scEl=document.getElementById('task-search-count');
   if(scEl) scEl.textContent=q?`${filtered.length} result${filtered.length!==1?'s':''}`:'' ;
   renderSortActivePills('tasks');
@@ -1852,7 +1870,7 @@ function renderTasksView(){
     if(rest.length) html+=`<div class="sec-lbl">Tasks</div>${rest.map(t=>taskHtml(t,q)).join('')}`;
     if(carry.length) html+=`<div class="sec-lbl">Carried over</div>${carry.map(t=>taskHtml(t,q)).join('')}`;
     if(!open.length) html+=`<div style="padding:28px;text-align:center;color:var(--tx3);font-size:13px">${q?`No results matching "${q}"`:'No tasks for this day 🎉'}</div>`;
-    html+=`<div class="add-row" onclick="openTaskModal()"><i class="fa-solid fa-plus"></i> Add task</div>`;
+    html+=`<div class="add-row" onclick="openTaskModal(myTasksTab)"><i class="fa-solid fa-plus"></i> Add task</div>`;
     html+=`<div class="arch-section"><div class="arch-toggle" onclick="showArch=!showArch;renderTasksView()"><i class="fa-solid fa-${showArch?'chevron-down':'chevron-right'}" style="font-size:10px"></i><span>${showArch?'Hide':'Show'} completed (${done_.length})</span></div>`;
     if(showArch&&done_.length) html+=`<div class="arch-tasks">${applySort_list(done_,'tasks').map(t=>taskHtml(t,q)).join('')}</div>`;
     html+=`</div></div>`;
@@ -1863,7 +1881,7 @@ function renderTasksView(){
       <thead><tr><th style="width:30px"></th>${tableHeaders('tasks')}${customColHeaders('tasks')}<th></th></tr></thead>
       <tbody>${sorted.map(t=>taskRow(t,customCols,'tasks',q)).join('')}</tbody></table></div>
       <div class="arch-section"><div class="arch-toggle" onclick="showArch=!showArch;renderTasksView()"><i class="fa-solid fa-${showArch?'chevron-down':'chevron-right'}" style="font-size:10px"></i><span>${showArch?'Hide':'Show'} completed (${done_.length})</span></div></div>
-      <div class="add-row" onclick="openTaskModal()"><i class="fa-solid fa-plus"></i> Add task</div></div>`;
+      <div class="add-row" onclick="openTaskModal(myTasksTab)"><i class="fa-solid fa-plus"></i> Add task</div></div>`;
   }
 }
 
@@ -1880,7 +1898,7 @@ function setViewMode(m){ taskViewMode=m; document.getElementById('vt-list').clas
 function quickAdd(e){
   if(e.key!=='Enter') return;
   const val=document.getElementById('qinp').value.trim(); if(!val)return;
-  const newTask={id:'t'+Date.now(),title:val,type:taskTypes[0]?.id||'personal',prio:prioTypes[1]?.id||'p2',due:ds(dayForOff(dayOff)),dueTime:'',status:'todo',carryover:false,tags:[],assignee:'me',notes:'',subtasks:[],custom:{},gcal:false,created:Date.now()};
+  const newTask={id:'t'+Date.now(),title:val,type:myTasksTab||taskTypes[0]?.id||'personal',prio:prioTypes[1]?.id||'p2',due:ds(dayForOff(dayOff)),dueTime:'',status:'todo',carryover:false,tags:[],assignee:'me',notes:'',subtasks:[],custom:{},gcal:false,created:Date.now()};
   tasks.unshift(newTask);
   fbSet('tasks',newTask.id,newTask);
   document.getElementById('qinp').value='';
