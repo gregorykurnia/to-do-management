@@ -1694,6 +1694,14 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
   // Assignee cell
   const avDd=`cdd-sa-${sid}`;
   const assigneeCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${avDd}')">${avHtml(s.assignee||'me',20)}<div class="cell-dd" id="${avDd}">${Object.keys(AMAP).map(a=>`<div class="cell-dd-item${(s.assignee||'me')===a?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','assignee','${a}');closeCellDd()">${avHtml(a,18)} <span style="font-size:12px">${ANAME[a]||a}</span></div>`).join('')}</div></div>`;
+  // Type cell
+  const typeDd=`cdd-sub-t-${sid}`;
+  const typeCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${typeDd}')">${typeBadge(s.type)}<div class="cell-dd" id="${typeDd}"><div class="cell-dd-item" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','type','');closeCellDd()"><span style="color:var(--tx3);font-size:11px">— none —</span></div>${taskTypes.map(tp=>`<div class="cell-dd-item${s.type===tp.id?' active':''}" onclick="event.stopPropagation();spSaveSubField('${tid}','${sid}','type','${tp.id}');closeCellDd()">${typeBadge(tp.id)}</div>`).join('')}</div></div>`;
+  // Tags cell
+  const tagsDd=`cdd-sub-tg-${sid}`;
+  const curTags=s.tags||[];
+  const tagsDisp=curTags.length?curTags.slice(0,2).map(tg=>`<span class="badge btag">${tg}</span>`).join(' ')+(curTags.length>2?`<span class="badge btag">+${curTags.length-2}</span>`:''): `<span style="color:var(--tx3);font-size:11px">—</span>`;
+  const tagsCell=`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('${tagsDd}')">${tagsDisp}<div class="cell-dd" id="${tagsDd}" style="min-width:160px">${tags.map(tg=>`<div class="cell-dd-item${curTags.includes(tg)?' active':''}" onclick="event.stopPropagation();spSubToggleTag('${tid}','${sid}','${tg}')"><i class="fa-solid fa-${curTags.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join('')}</div></div>`;
   const customCells=(cols||customCols).filter(c=>!c.hidden).map(col=>{
     const raw=(s.custom||{})[col.id];
     const val=raw!=null?String(raw):'';
@@ -1738,11 +1746,11 @@ function subTaskRow(tid,s,cols,context,q,depth=0){
     <td onclick="event.stopPropagation();spTogSubStatus('${tid}','${sid}')"><div class="chk" style="width:13px;height:13px;${chkStyle}">${isDone?'<i class="fa-solid fa-check" style="font-size:7px;color:#fff"></i>':''}</div></td>
     ${vis('title')?`<td onclick="event.stopPropagation()"><div class="subtask-indent" style="padding-left:${22+depth*18}px"><span class="subtask-tree">└</span><span id="sub-tbl-span-${sid}" style="font-size:12.5px;${isDone?'text-decoration:line-through;color:var(--tx3)':''}cursor:text" onclick="event.stopPropagation();cellEditSubTblTitle('${tid}','${sid}')">${q?hlText(s.text||'',q):s.text||''}</span><input id="sub-tbl-inp-${sid}" class="finp" style="display:none;font-size:12.5px;padding:2px 5px;width:160px" value="${(s.text||'').replace(/"/g,'&quot;')}" onkeydown="if(event.key==='Enter'){event.preventDefault();cellSaveSubTblTitle('${tid}','${sid}',this.value);}if(event.key==='Escape'){event.stopPropagation();cellCancelSubTblTitle('${sid}');}" onblur="cellSaveSubTblTitle('${tid}','${sid}',this.value)"><button class="sub-qadd-btn" onclick="event.stopPropagation();quickAddSubtaskInline('${tid}','${sid}',${depth+1})" title="Add sub-subtask"><i class="fa-solid fa-plus" style="font-size:9px"></i></button></div></td>`:''}
     ${vis('prio')?`<td onclick="event.stopPropagation()" class="cell-editable">${prioCell}</td>`:''}
-    ${vis('type')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
+    ${vis('type')?`<td onclick="event.stopPropagation()" class="cell-editable">${typeCell}</td>`:''}
     ${vis('status')?`<td onclick="event.stopPropagation()" class="cell-editable">${statusCell}</td>`:''}
     ${vis('due')?`<td onclick="event.stopPropagation()" class="cell-editable">${dueCell}</td>`:''}
     ${vis('assignee')?`<td onclick="event.stopPropagation()" class="cell-editable">${assigneeCell}</td>`:''}
-    ${vis('tags')?`<td style="color:var(--tx3);font-size:11px;text-align:center">—</td>`:''}
+    ${vis('tags')?`<td onclick="event.stopPropagation()" class="cell-editable">${tagsCell}</td>`:''}
     ${customCells}
     <td onclick="event.stopPropagation()"><button class="ibtn" onclick="spDeleteSub('${tid}','${sid}')" title="Delete subtask"><i class="fa-solid fa-trash" style="font-size:10px"></i></button></td>
   </tr>`;
@@ -2352,6 +2360,15 @@ function spSaveSubField(tid,sid,field,val){
   fbSet('tasks',tid,t); closeCellDd();
   renderTasksView(); renderTeam();
   if(activeSp===String(tid)) renderSpSubtasks(tid);
+}
+function spSubToggleTag(tid,sid,tag){
+  const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
+  const s=findSubInTree(t.subtasks,sid); if(!s)return;
+  if(!s.tags) s.tags=[];
+  const i=s.tags.indexOf(tag); if(i>-1) s.tags.splice(i,1); else s.tags.push(tag);
+  fbSet('tasks',tid,t);
+  const el=document.getElementById('cdd-sub-tg-'+sid);
+  if(el){ const cur=s.tags; el.innerHTML=tags.map(tg=>`<div class="cell-dd-item${cur.includes(tg)?' active':''}" onclick="event.stopPropagation();spSubToggleTag('${tid}','${sid}','${tg}')"><i class="fa-solid fa-${cur.includes(tg)?'check':'plus'}" style="font-size:9px;width:11px"></i>${tg}</div>`).join(''); }
 }
 function cellSetSubDue(tid,sid,dateVal,timeVal){
   const t=tasks.find(t=>String(t.id)===String(tid)); if(!t)return;
