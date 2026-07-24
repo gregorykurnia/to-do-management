@@ -1148,15 +1148,17 @@ async function fbLoadSettings(){
 
 /* ── Seed sample data if collections are empty ── */
 async function seedIfEmpty(){
-  const snap = await db.collection('tasks').limit(1).get();
-  if(!snap.empty) return; // already has data
-  console.log('Seeding sample data…');
-  const batch = db.batch();
-  SAMPLE_TASKS.forEach(t=>batch.set(db.collection('tasks').doc(String(t.id)), JSON.parse(JSON.stringify(t))));
-  SAMPLE_EVENTS.forEach(e=>batch.set(db.collection('events').doc(String(e.id)), JSON.parse(JSON.stringify(e))));
-  SAMPLE_MILESTONES.forEach(m=>batch.set(db.collection('milestones').doc(String(m.id)), JSON.parse(JSON.stringify(m))));
-  await batch.commit();
-  console.log('Seed complete.');
+  try {
+    const snap = await db.collection('tasks').limit(1).get();
+    if(!snap.empty) return; // already has data
+    console.log('Seeding sample data…');
+    const batch = db.batch();
+    SAMPLE_TASKS.forEach(t=>batch.set(db.collection('tasks').doc(String(t.id)), JSON.parse(JSON.stringify(t))));
+    SAMPLE_EVENTS.forEach(e=>batch.set(db.collection('events').doc(String(e.id)), JSON.parse(JSON.stringify(e))));
+    SAMPLE_MILESTONES.forEach(m=>batch.set(db.collection('milestones').doc(String(m.id)), JSON.parse(JSON.stringify(m))));
+    await batch.commit();
+    console.log('Seed complete.');
+  } catch(e){ console.error('seedIfEmpty error', e); }
 }
 
 /* ── Real-time listeners ── */
