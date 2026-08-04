@@ -57,26 +57,32 @@
   <div class="topbar">
     <div class="tb-title" id="tb-title">My Tasks</div>
     <div class="sync-dot" id="sync-dot" title="Firestore sync status"></div>
-    <div class="gsearch"><i class="fa-solid fa-magnifying-glass" style="color:var(--tx3);font-size:12px"></i><input id="gsearch-inp" placeholder="Search tasks… " onkeyup="globalSearch(this.value)"><span class="kbhint">/</span></div>
-    <button class="btn btn-gh btn-sm" onclick="openTaskModal()"><i class="fa-solid fa-plus"></i> New Task</button>
-    <button class="btn btn-pr btn-sm" onclick="openEventModal()"><i class="fa-solid fa-calendar-plus"></i> New Event</button>
+    <div class="gsearch"><i class="fa-solid fa-magnifying-glass" style="color:var(--tx3);font-size:12px"></i><input id="gsearch-inp" placeholder="Search…" onkeyup="globalSearch(this.value)"><span class="kbhint">/</span></div>
+    <button class="btn btn-pr btn-sm" onclick="openTaskModal()"><i class="fa-solid fa-plus"></i> New Task</button>
   </div>
 
   <div class="content" id="content-area">
 
     <!-- MY TASKS VIEW -->
     <div class="view on" id="view-tasks">
+      <div class="page-hd">
+        <h1 class="page-ttl">My Tasks</h1>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gh btn-sm" onclick="openEventModal()"><i class="fa-solid fa-calendar-plus"></i> New Event</button>
+          <button class="btn btn-pr btn-sm" onclick="openTaskModal()"><i class="fa-solid fa-plus"></i> New Task</button>
+        </div>
+      </div>
       <!-- Day nav -->
       <div class="dnav">
-        <button class="dnav-btn" onclick="chDay(-7)" title="Back 1 week"><i class="fa-solid fa-angles-left"></i></button>
+        <button class="dnav-btn dnav-btn-ghost" onclick="chDay(-7)" title="Back 1 week"><i class="fa-solid fa-angles-left"></i></button>
         <button class="dnav-btn" onclick="chDay(-1)"><i class="fa-solid fa-chevron-left"></i></button>
         <div style="flex:1">
           <span class="dnav-lbl" id="day-label">Today</span>
           <span class="dnav-sub" id="day-sub"></span>
         </div>
-        <button class="dnav-btn" onclick="goToday()">Today</button>
+        <button class="dnav-btn dnav-today" onclick="goToday()">Today</button>
         <button class="dnav-btn" onclick="chDay(1)"><i class="fa-solid fa-chevron-right"></i></button>
-        <button class="dnav-btn" onclick="chDay(7)" title="Forward 1 week"><i class="fa-solid fa-angles-right"></i></button>
+        <button class="dnav-btn dnav-btn-ghost" onclick="chDay(7)" title="Forward 1 week"><i class="fa-solid fa-angles-right"></i></button>
         <button class="btn btn-gh btn-sm" onclick="sv('week')"><i class="fa-solid fa-calendar-week"></i> Week</button>
       </div>
 
