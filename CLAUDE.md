@@ -1,13 +1,13 @@
 # to-do-management
 
-Single-file personal todo web app. All code lives in `index.html` — inline CSS, inline JS, no build step.
+Personal todo web app. No build step — `index.html` is the shell (markup + external script/link tags), `styles.css` has all CSS, `app.js` has all JS, loaded directly by the browser.
 
 ## Deployment
 
-Hosted on GitHub Pages from `main` branch. Edits to `index.html` must be committed and pushed to take effect:
+Hosted on GitHub Pages from `main` branch. Edits to `index.html`, `styles.css`, or `app.js` must be committed and pushed to take effect:
 
 ```
-git add index.html && git commit -m "..." && git push origin main
+git add index.html styles.css app.js && git commit -m "..." && git push origin main
 ```
 
 After pushing, wait ~60 seconds then hard-refresh the live domain (Cmd+Shift+R).
