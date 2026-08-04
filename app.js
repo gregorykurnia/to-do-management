@@ -229,11 +229,11 @@ function startListeners(){
 /* ════════════════════════════════════════════════
    HELPERS
 ════════════════════════════════════════════════ */
-const AMAP  = {me:['var(--p50)','var(--p800)','GK'],dev1:['var(--t50)','var(--t800)','D1'],dev2:['var(--b50)','var(--b800)','D2'],sales:['var(--a50)','#633806','SA'],ops:['var(--c50)','var(--c800)','OP']};
+const AMAP  = {me:['var(--p800)','#fff','G'],dev1:['var(--t600)','#fff','D1'],dev2:['var(--b600)','#fff','D2'],sales:['var(--a200)','#412402','SA'],ops:['var(--c600)','#fff','OP']};
 const ANAME = {me:'Greg (me)',dev1:'Dev 1',dev2:'Dev 2',sales:'Sales',ops:'Ops'};
 
 function prioIdx(pid){ const i=prioTypes.findIndex(p=>p.id===pid); return i<0?99:i; }
-function prioBadgeHtml(pid){ const p=prioTypes.find(x=>x.id===pid)||prioTypes[1]; return `<span class="badge" style="background:${p.color}22;color:${p.color}">${p.label}</span>`; }
+function prioBadgeHtml(pid){ const p=prioTypes.find(x=>x.id===pid)||prioTypes[1]; return `<span class="badge pdot-badge" style="color:${p.color}"><span class="pdot" style="background:${p.color}"></span>${p.label}</span>`; }
 
 function typeBadge(typeId){
   const tt = taskTypes.find(t=>t.id===typeId);
@@ -243,9 +243,9 @@ function typeBadge(typeId){
 
 function statusBadge(s, clickId){
   const map = {
-    'todo':        ['bstodo',   '<i class="fa-solid fa-circle-dot" style="font-size:8px"></i> To Do'],
-    'in-progress': ['bsinprog', '<i class="fa-solid fa-spinner"    style="font-size:8px"></i> In Progress'],
-    'done':        ['bsdone',   '<i class="fa-solid fa-circle-check" style="font-size:8px"></i> Done'],
+    'todo':        ['bstodo',   'To Do'],
+    'in-progress': ['bsinprog', 'In Progress'],
+    'done':        ['bsdone',   'Done'],
   };
   const [cls, label] = map[s] || map['todo'];
   const click = clickId ? `onclick="event.stopPropagation();cycleStatus('${clickId}')"` : '';
@@ -613,7 +613,7 @@ function cellDueHtml(t){
 function cellAssigneeHtml(t){
   const assignees=Object.keys(AMAP);
   const opts=assignees.map(a=>`<div class="cell-dd-item${t.assignee===a?' active':''}" onclick="event.stopPropagation();cellSetAssignee('${t.id}','${a}')">${avHtml(a,18)} <span style="font-size:12px">${ANAME[a]||a}</span></div>`).join('');
-  return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('cdd-av-${t.id}')">${avHtml(t.assignee,20)}<div class="cell-dd" id="cdd-av-${t.id}">${opts}</div></div>`;
+  return`<div class="cell-edit-wrap" onclick="event.stopPropagation();toggleCellDd('cdd-av-${t.id}')"><div style="display:flex;align-items:center;gap:7px">${avHtml(t.assignee,22)}<span style="font-size:12.5px;color:var(--tx2)">${(ANAME[t.assignee]||t.assignee||'').replace(' (me)','')}</span></div><div class="cell-dd" id="cdd-av-${t.id}">${opts}</div></div>`;
 }
 function cellSetDue(tid,date,time){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.due=date; t.dueTime=time||''; fbSet('tasks',tid,t); closeCellDd(); }
 function cellSetAssignee(tid,a){ const t=tasks.find(t=>String(t.id)===String(tid));if(!t)return; t.assignee=a; fbSet('tasks',tid,t); closeCellDd(); }

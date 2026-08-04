@@ -101,6 +101,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 
 /* Badges */
 .badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:600;padding:3px 7px;border-radius:4px;white-space:nowrap}
+.badge.pdot-badge{background:transparent;padding:0;gap:6px;font-size:11.5px;font-weight:500}
 .bp1{background:var(--r50);color:var(--r600)}
 .bp2{background:var(--a50);color:var(--a800)}
 .bp3{background:var(--b50);color:var(--b600)}
@@ -108,14 +109,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 .bbus{background:var(--t50);color:var(--t600)}
 .bteam{background:var(--gr50);color:var(--gr600)}
 .bco{background:var(--c50);color:var(--c600)}
-.btag{background:var(--g100);color:var(--tx2)}
+.btag{background:var(--g100);color:var(--tx2);text-transform:uppercase;letter-spacing:.03em;font-size:9.5px;border-radius:20px;padding:3px 8px}
 .bred{background:var(--r50);color:var(--r600)}
 .bamb{background:var(--a50);color:var(--a800)}
 .bblu{background:var(--b50);color:var(--b600)}
 /* task status badges */
-.bstodo{background:var(--g50);color:var(--tx2);border:1px solid var(--bd)}
-.bsinprog{background:var(--p50);color:var(--p800);border:1px solid var(--p100)}
-.bsdone{background:var(--gr50);color:var(--gr600)}
+.bstodo{background:var(--g50);color:var(--tx2);border-radius:20px;padding:3px 9px}
+.bsinprog{background:var(--p50);color:var(--p800);border-radius:20px;padding:3px 9px}
+.bsdone{background:var(--gr50);color:var(--gr600);border-radius:20px;padding:3px 9px}
 .status-pill{cursor:pointer;user-select:none;transition:opacity .12s}
 .status-pill:hover{opacity:.7}
 
@@ -150,7 +151,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 
 /* Stats row */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
-.stat{background:var(--g50);border:1px solid var(--bd);border-radius:var(--r-lg);padding:12px 14px}
+.stat{background:var(--g50);border:none;border-radius:var(--r-lg);padding:14px 16px}
 .stat-lbl{font-size:10.5px;color:var(--tx2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .stat-val{font-size:22px;font-weight:500;color:var(--tx);line-height:1}
 .stat-sub{font-size:10px;color:var(--tx3);margin-top:4px}
@@ -294,7 +295,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--tx);display
 .cprio{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:500;padding:2px 6px;border-radius:4px}
 
 /* Table overflow scroll */
-.tbl-wrap{overflow-x:auto;border:1px solid var(--bd);border-radius:var(--r-lg)}
+.tbl-wrap{overflow-x:auto;border-top:1px solid var(--bd)}
 
 /* GCal placeholder */
 .gcal-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 24px;text-align:center;gap:12px}
